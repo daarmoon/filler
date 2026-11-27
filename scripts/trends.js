@@ -73,7 +73,7 @@ async function readSource(src) {
     if (rb.status >= 500 || rb.status === 0) { res.reason = 'robots.txt를 읽지 못해 건너뜀'; return res; }
     if (rb.status === 200 && !robotsAllows(robotsRules(rb.text), u.pathname + u.search)) { res.reason = 'robots.txt가 막아 둠'; return res; }
     const pg = await get(src.url);
-    if (pg.status !== 200) { res.reason = `HTTP ${pg.status}`; return res; }
+    if (pg.status !== 200) { res.reason = [401, 403, 429].includes(pg.status) ? `사이트가 자동 접속을 막음 (HTTP ${pg.status})` : `HTTP ${pg.status}`; return res; }
     res.texts = extractTexts(pg.text);
     res.ok = res.texts.length > 0; if (!res.ok) res.reason = '글자를 찾지 못함 (화면을 스크립트로 그리는 사이트일 수 있음)';
   } catch (e) { res.reason = '연결 실패: ' + (e.name === 'AbortError' ? '시간 초과' : e.message); }
