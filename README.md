@@ -3,6 +3,11 @@
 홈쇼핑 방송용 하드필러·오프닝필러·인서트·통강조 영상을 스토리보드 텍스트로 만드는 도구입니다.
 편집 프로그램 없이 배경·모션·그래픽을 만들고, 송출용 MXF까지 바로 저장합니다.
 
+## 바로 쓰기
+
+- **웹 버전 (설치 없이)**: https://daarmoon.github.io/filler/ 를 Chrome이나 Edge로 열기
+- **윈도우 앱**: [Releases](https://github.com/daarmoon/filler/releases) 에서 `HardfillerMaker-Setup-…exe`(설치형) 또는 `HardfillerMaker-Portable-…exe`(설치 없이 실행) 받기
+
 ## 받는 법 (두 가지)
 
 | | 윈도우 앱 (권장) | 웹 버전 |
@@ -60,8 +65,7 @@ npm test                # 화면·인서트·통강조 자동 테스트 (Playwri
 
 ### GitHub에 올렸을 때
 - `.github/workflows/build.yml`: `v6.0.0` 처럼 v로 시작하는 태그를 올리면 윈도우에서 설치 파일을 빌드해 릴리스에 붙입니다. Actions 탭의 "Run workflow"로 직접 돌릴 수도 있습니다.
-- `.github/workflows/pages.yml`: 웹 버전을 GitHub Pages로 배포합니다. (저장소 Settings → Pages → Source를 "GitHub Actions"로)
-- `package.json` 의 `repository` 주소(`OWNER`)를 실제 저장소로 바꿔 주세요.
+- `.github/workflows/pages.yml`: main 브랜치에 올릴 때마다 웹 버전을 GitHub Pages(https://daarmoon.github.io/filler/)로 배포합니다. 처음 한 번은 저장소 Settings → Pages → Source를 "GitHub Actions"로 바꿔야 합니다.
 
 ### 포함한 외부 코드
 - mp4-muxer, webm-muxer (MIT, `vendor/`)
