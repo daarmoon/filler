@@ -1,20 +1,20 @@
 {
  "updated": null,
- "checked": "2026-11-27T07:22:36.953Z",
+ "checked": "2026-11-27T07:24:01.449Z",
  "items": [],
  "sources": [
   {
    "name": "TVCF",
    "url": "https://tvcf.co.kr/",
    "ok": false,
-   "reason": "HTTP 403",
+   "reason": "사이트가 자동 접속을 막음 (HTTP 403)",
    "texts": 0
   },
   {
    "name": "Prompt Motion",
    "url": "https://prompt-motion.com/?type=prompt&tag=charts",
    "ok": false,
-   "reason": "HTTP 403",
+   "reason": "사이트가 자동 접속을 막음 (HTTP 403)",
    "texts": 0
   }
  ],
