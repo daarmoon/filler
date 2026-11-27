@@ -60,8 +60,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   console.log('back to hard:', await page.evaluate(() => S.scenes.length));
   await page.click('#dirBtn'); await page.waitForTimeout(500);
   console.log('hard direct types:', await page.evaluate(() => S.scenes.map(s => s.type).join(',')));
-  await page.click('#fmtSeg button[data-v=인서트]'); await page.waitForTimeout(400); await page.click('#dirBtn'); await page.waitForTimeout(500);
-  console.log('insert direct:', await page.evaluate(() => S.scenes.map(s => s.type + ':' + sceneText(s)).join(' | ')));
+  await page.click('#recipeSeg button[data-v=typo]'); await page.waitForTimeout(200); await page.click('#dirBtn'); await page.waitForTimeout(500);
+  console.log('typo recipe direct:', await page.evaluate(() => S.scenes.map(s => s.type + ':' + sceneText(s)).join(' | ')));
   // 새로 만들기
   await page.click('#newBtn'); await page.waitForTimeout(300);
   console.log('after new:', await page.evaluate(() => [S.scenes.length, PANE]));

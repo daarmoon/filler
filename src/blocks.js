@@ -40,6 +40,42 @@ function sideProps(ctx, e, box, kind, appearT = 0.5) {
 
 function splitLines(sc) { return sc.lines.filter(l => l.trim() !== '').map(l => l.replace(/^\s*\((외곽|박스|테이프|입체|자간|작게|크게)\)\s*/, '')); }
 
+// 가격 숫자 연출: 굴리기(슬롯처럼 돌다 멈춤, 기본) · 내려가기(정가에서 판매가로 숫자가 내려옴)
+// 돌려줌 { shown: 지금 보일 숫자 글자, settle: 멈추는 시각, down: 내려가기인지, from: 시작 숫자(내려가기), counting: 내려가는 중 }
+function priceFrom(target, opts) {
+  let from = parseInt(plain(opts.정가 || '').replace(/[^\d]/g, '')) || 0;
+  if (from > target) return from;
+  const r = parseFloat(String(opts.할인 || '').replace(/[^\d.]/g, ''));
+  if (r > 0 && r < 100) from = Math.round(target / (1 - r / 100) / 100) * 100;
+  if (!(from > target)) from = Math.ceil(target * 1.6 / 1000) * 1000;
+  return from > target ? from : target * 2 || 0;
+}
+function priceAnim(num, e, rollStart = .35, settleAt = 1.25) {
+  if (e.opts.가격모션 === '내려가기' && /\d/.test(num)) {
+    const target = parseInt(num.replace(/[^\d]/g, '')) || 0, from = priceFrom(target, e.opts), comma = num.includes(',') || target >= 10000;
+    const t0 = .45, t1 = 1.85, q = Ease.outCubic(prog(e.lt, t0, t1 - t0));
+    const cur = Math.round(from + (target - from) * q), f = n => comma ? n.toLocaleString('ko-KR') : String(n);
+    return { shown: e.lt >= t1 ? num : f(cur), settle: t1, down: true, from: f(from), start: t0, counting: e.lt >= t0 && e.lt < t1 };
+  }
+  let shown = '', di = 0;
+  for (const ch of num) {
+    if (/\d/.test(ch)) { const st = rollStart + .12 + di * .07, fin = settleAt + di * .05; shown += e.lt < st ? ' ' : e.lt < fin ? String(Math.floor(rnd(Math.floor(e.lt * 24), di) * 10)) : ch; di++; }
+    else shown += e.lt < rollStart + .12 ? ' ' : ch;
+  }
+  return { shown, settle: settleAt + Math.max(0, di - 1) * .05, down: false, start: rollStart };
+}
+// 내려가기 중에 숫자 옆에서 아래로 떨어지는 화살표
+function dropArrow(ctx, x, y, s, color, lt, a0, a1) {
+  const ap = prog(lt, a0, .25) * (1 - prog(lt, a1, .35)); if (ap <= 0) return;
+  ctx.save(); ctx.globalAlpha = ap; ctx.fillStyle = color;
+  for (let k = 0; k < 3; k++) {
+    const ph = ((lt * 2.2 + k / 3) % 1), yy = y - s * .9 + ph * s * 1.6;
+    ctx.globalAlpha = ap * Math.sin(ph * Math.PI);
+    ctx.beginPath(); ctx.moveTo(x - s * .5, yy - s * .28); ctx.lineTo(x, yy + s * .22); ctx.lineTo(x + s * .5, yy - s * .28); ctx.lineTo(x + s * .5, yy - s * .02); ctx.lineTo(x, yy + s * .48); ctx.lineTo(x - s * .5, yy - s * .02); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
 const BLOCKS = {
   hook: {
     name: '훅 카피', weight: 2.6, help: '줄1 작은 문구 / 줄2 큰 문구 …  (한 줄이면 전부 크게)',
@@ -256,7 +292,7 @@ const BLOCKS = {
     },
   },
   price: {
-    name: '가격 공개', weight: 3.6, help: '앞 문구(예: 단,) / 가격 (예: 29,700원) / 조건 문구  {정가: 99,000원, 할인: 23%}',
+    name: '가격 공개', weight: 3.6, help: '앞 문구(예: 단,) / 가격 (예: 29,700원) / 조건 문구  {정가: 99,000원, 할인: 23%, 가격모션: 굴리기|내려가기}',
     sample: '[가격] 단, / 29,700원 / (모바일 10% 할인 시)',
     render(ctx, sc, e) {
       const L = splitLines(sc); const A = e.A;
@@ -264,26 +300,17 @@ const BLOCKS = {
       const pre = L.slice(0, pi), post = L.slice(pi + 1);
       const raw = plain(L[pi]); const m = raw.match(/\d[\d,]*/);
       const before = m ? raw.slice(0, m.index) : '', num = m ? m[0] : raw, after = m ? raw.slice(m.index + num.length) : '';
-      // 슬롯 회전
-      const rollStart = .35, settleAt = 1.25;
-      let shown = '';
-      let di = 0;
-      for (const ch of num) {
-        if (/\d/.test(ch)) {
-          const st = rollStart + .12 + di * .07, fin = settleAt + di * .05;
-          if (e.lt < st) shown += ' '; else if (e.lt < fin) shown += String(Math.floor(rnd(Math.floor(e.lt * 24), di) * 10)); else shown += ch;
-          di++;
-        } else shown += e.lt < rollStart + .12 ? ' ' : ch;
-      }
-      const lastSettle = settleAt + Math.max(0, di - 1) * .05;
+      // 숫자 연출 (굴리기 / 내려가기)
+      const rollStart = .35, an = priceAnim(num, e, rollStart), shown = an.shown, lastSettle = an.settle;
       const punch = prog(e.lt, lastSettle, .3);
       const bigS0 = 270;
       const sufS = .55;
-      setFont(ctx, e.F, bigS0); const wNum = ctx.measureText(num.replace(/\d/g, '0')).width;
+      setFont(ctx, e.F, bigS0); const cells = str => ctx.measureText(str.replace(/\d/g, '0')).width;
+      const wNum = cells(num), wNumMax = an.down ? Math.max(wNum, cells(an.from)) : wNum, wNumNow = an.down ? cells(shown) : wNum;
       setFont(ctx, e.F, bigS0 * sufS); const wPre = before ? ctx.measureText(before).width + 14 : 0;
       setFont(ctx, e.F, bigS0 * sufS); const wSuf = ctx.measureText(after).width;
-      const totW0 = wPre + wNum + wSuf + 10; const k = Math.min(1, (A.w * .92) / totW0); const bigS = bigS0 * k;
-      const totW = totW0 * k;
+      const totW0 = wPre + wNumMax + wSuf + 10; const k = Math.min(1, (A.w * .92) / totW0); const bigS = bigS0 * k;
+      const totW = (wPre + wNumNow + wSuf + 10) * k;
       const orig = e.opts.정가 ? plain(e.opts.정가).replace(/^(\D*)(\d{4,})(\D*)$/, (m, a, n, b) => a + Number(n).toLocaleString('ko-KR') + (b || '원')) : '', oH = orig ? 62 : 0;
       const preH = pre.length ? (pre.join('').length <= 3 ? 0 : 90) : 0, postH = post.length ? 60 : 0;
       const cy = A.cy + (preH + oH - postH) / 2 + (pre.length && pre.join('').length <= 3 ? 30 : 0);
@@ -299,20 +326,22 @@ const BLOCKS = {
       if (before) drawText(ctx, before, Object.assign({}, st, { x: x0, y: cy + bigS * (1 - sufS) * .38, size: bigS * sufS, align: 'left', motion: 'none' }));
       // 숫자: 고정폭 배치로 흔들림 방지
       setFont(ctx, e.F, bigS); let x = x0 + wPre * k;
+      const hot = !an.down || e.lt >= lastSettle; // 내려가는 동안은 기본 글자색, 멈추면 포인트 색
       for (const ch of shown) {
         const cw = ctx.measureText(/\d| /.test(ch) ? '0' : ch).width;
-        if (ch !== ' ') drawText(ctx, '*' + ch + '*', Object.assign({}, st, { x: x + cw / 2, y: cy, size: bigS, motion: 'none', label: '_d' }));
+        if (ch !== ' ') drawText(ctx, hot ? '*' + ch + '*' : ch, Object.assign({}, st, { x: x + cw / 2, y: cy, size: bigS, motion: 'none', label: '_d' }));
         x += cw;
       }
-      if (after) drawText(ctx, after, Object.assign({}, st, { x: x + 8, y: cy + bigS * (1 - sufS) * .38, size: bigS * sufS, align: 'left', motion: 'pop', t: e.lt, delay: lastSettle - .1 }));
+      if (after) drawText(ctx, after, Object.assign({}, st, { x: x + 8, y: cy + bigS * (1 - sufS) * .38, size: bigS * sufS, align: 'left', motion: 'pop', t: e.lt, delay: an.down ? an.start - .1 : lastSettle - .1 }));
       reportBox(x0, cy - bigS * .6, totW, bigS * 1.2, raw);
       ctx.restore();
-      // 정가 (취소선) : 숫자가 굴러가기 전에 먼저 보이고, 가격이 멈추면 줄이 그어짐
+      if (an.down) dropArrow(ctx, Math.max(A.x + 50, x0 - bigS * .32), cy, bigS * .34, e.P.em, e.lt, an.start, lastSettle);
+      // 정가 (취소선) : 숫자가 굴러가기 전에 먼저 보이고, 가격이 멈추면 줄이 그어짐 (내려가기는 숫자가 내려가기 시작할 때)
       if (orig) {
         const os = 50, oy = cy - bigS * .62 - 22, oa = prog(e.lt, .1, .35);
         const ot = /정가/.test(orig) ? orig : '정가 ' + orig;
         const r = drawText(ctx, ot, Object.assign(roleStyle(e, 'note', os), { x: A.cx, y: oy, size: os, motion: 'slide', t: e.lt, delay: .1, maxW: A.w * .6 }));
-        const sp = Ease.outCubic(prog(e.lt, lastSettle - .25, .35));
+        const sp = Ease.outCubic(prog(e.lt, an.down ? an.start : lastSettle - .25, .35));
         if (sp > 0) { ctx.save(); ctx.globalAlpha = oa; ctx.strokeStyle = e.P.em; ctx.lineWidth = 5; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(r.x - 8, oy + 2); ctx.lineTo(r.x - 8 + (r.w + 16) * sp, oy - 4); ctx.stroke(); ctx.restore(); }
       }
       // 할인율 동그라미 배지 (원 단위 위쪽)

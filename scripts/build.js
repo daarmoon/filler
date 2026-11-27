@@ -2,7 +2,7 @@
 // src/ 를 합쳐서 브라우저로 바로 여는 단일 HTML(dist/hardfiller-maker.html)을 만듭니다. 윈도우 앱도 이 파일을 엽니다.
 const fs = require('fs'); const path = require('path');
 const root = path.join(__dirname, '..'), src = path.join(root, 'src');
-const order = ['core.js', 'themes.js', 'effects.js', 'props.js', 'blocks.js', 'tong.js', 'storyboard.js', 'insert.js', 'director.js', 'render.js', 'imageproc.js', 'export.js', 'templates.js', 'app.js'];
+const order = ['core.js', 'themes.js', 'effects.js', 'props.js', 'blocks.js', 'tong.js', 'storyboard.js', 'insert.js', 'director.js', 'themes2.js', 'render.js', 'imageproc.js', 'export.js', 'templates.js', 'app.js'];
 const read = f => fs.readFileSync(f, 'utf8');
 const vendor = ['mp4-muxer.js', 'webm-muxer.js'].map(f => read(path.join(root, 'vendor', f))).join('\n');
 const lbar = fs.readFileSync(path.join(root, 'assets', 'lbar-guide.png')).toString('base64');

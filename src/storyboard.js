@@ -22,7 +22,10 @@ const FEEL_NAMES = ['부드럽게', '보통', '강하게'];
 const AUTO_TRANS = ['와이프', '플래시', '줌', '원형', '타이포'];
 const PROPS_LIST = ['없음', '사이렌', '시계', '선물', '화살표위', '화살표아래', 'TV'];
 // max: 형식별 최대 길이(초). 통강조는 L바 네모 안에서 최대 8초
-const FORMATS = { 하드필러: { lbar: 'full', dur: 20, max: 30 }, 오프닝필러: { lbar: 'bottom', dur: 25, max: 30 }, 인서트: { lbar: 'full', dur: 15, max: 30 }, 통강조: { lbar: 'tong', dur: 8, max: 8 } };
+// v8부터 '인서트'는 형식이 아니라 자동 연출 방식(타이포 강조형)이라, 예전 '형식: 인서트'는 하드필러로 읽음
+const FORMATS = { 하드필러: { lbar: 'full', dur: 20, max: 30 }, 오프닝필러: { lbar: 'bottom', dur: 25, max: 30 }, 통강조: { lbar: 'tong', dur: 8, max: 8 } };
+const normFmt = v => { v = String(v || '').trim(); return v === '인서트' ? '하드필러' : FORMATS[v] ? v : '하드필러'; };
+const PRICE_MOTIONS = ['굴리기', '내려가기'];
 
 function themeFromName(v) {
   if (!v) return null; v = v.trim();
@@ -39,10 +42,22 @@ function fontFromName(v) {
   return null;
 }
 
+// {키: 값, 키: 값} 읽기. 값에 쉼표가 있으면 "따옴표"로 감쌈 (예: 단서: "NS기준, 50% 세일"). 99,000 같은 숫자 쉼표는 그대로
 function parseOpts(s) {
-  const o = {};
-  s.split(/,(?!\d{3})/).forEach(kv => { const i = kv.indexOf(':'); if (i > 0) o[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); else if (kv.trim()) o[kv.trim()] = '켬'; });
+  const o = {}, parts = []; let cur = '', q = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '"') q = !q;
+    if (ch === ',' && !q && !/^\d{3}(?!\d)/.test(s.slice(i + 1))) { parts.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  parts.push(cur);
+  parts.forEach(kv => { const i = kv.indexOf(':'); if (i > 0) { let v = kv.slice(i + 1).trim(); if (/^".*"$/.test(v)) v = v.slice(1, -1); o[kv.slice(0, i).trim()] = v; } else if (kv.trim()) o[kv.trim()] = '켬'; });
   return o;
+}
+function optValue(v) {
+  v = String(v).replace(/"/g, '”').replace(/\{/g, '(').replace(/\}/g, ')').replace(/\s+#/g, ' ＃');
+  return /,(?!\d{3}(?!\d))/.test(v) ? `"${v}"` : v;
 }
 
 function parseStoryboard(text) {
@@ -61,7 +76,9 @@ function parseStoryboard(text) {
       return;
     }
     if (!scenes.length && /^[^\[]*:/.test(line)) {
-      line.split('/').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) settings[kv.slice(0, i).trim()] = kv.slice(i + 1).trim(); });
+      // 값 안의 / (예: 단서: 4/3~ 기준) 는 앞 값에 그대로 붙임
+      let lastK = null;
+      line.split('/').forEach(kv => { const i = kv.indexOf(':'); if (i > 0) { lastK = kv.slice(0, i).trim(); settings[lastK] = kv.slice(i + 1).trim(); } else if (lastK && kv.trim()) settings[lastK] += '/' + kv.replace(/\s+$/, ''); });
       return;
     }
     if (scenes.length) { // 이어지는 줄
@@ -74,7 +91,7 @@ function parseStoryboard(text) {
 }
 
 function serializeScene(sc) {
-  const o = Object.entries(sc.opts || {}).filter(([k, v]) => v !== '' && v != null).map(([k, v]) => v === '켬' ? k : `${k}: ${v}`);
+  const o = Object.entries(sc.opts || {}).filter(([k, v]) => v !== '' && v != null).map(([k, v]) => v === '켬' ? k : `${k}: ${optValue(v)}`);
   return `[${sc.label || BLOCK_LABEL[sc.type]}]${sc.lines.length ? ' ' + sc.lines.join(' / ') : ''}${o.length ? ' {' + o.join(', ') + '}' : ''}`;
 }
 function serializeSettings(s) {

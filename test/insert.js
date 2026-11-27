@@ -1,4 +1,4 @@
-// 인서트 템플릿 렌더 확인: node test/insert.js [출력폴더]
+// 타이포 강조형(옛 인서트) 템플릿 렌더 확인: node test/insert.js [출력폴더]
 const { chromium } = require('playwright'); const path = require('path'); const fs = require('fs');
 (async () => {
   const out = process.argv[2] || 'test/insert'; fs.mkdirSync(out, { recursive: true });
@@ -7,7 +7,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(1500);
   await page.setInputFiles('#imgFile', 'test/product.png'); await page.waitForTimeout(500);
-  const ids = process.env.IDS ? process.env.IDS.split(',') : await page.evaluate(() => TEMPLATES.filter(t => t.fmt === '인서트').map(t => t.id));
+  const ids = process.env.IDS ? process.env.IDS.split(',') : await page.evaluate(() => TEMPLATES.filter(t => t.id.startsWith('ins_') || t.id.startsWith('v8_')).map(t => t.id));
   for (const id of ids) {
     const r = await page.evaluate(async ([id, F]) => {
       const t = TEMPLATES.find(x => x.id === id); const p = projFromText(t.text); await loadFontsFor(t.text); await document.fonts.ready;

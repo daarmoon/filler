@@ -20,12 +20,18 @@ function layer(i) {
   return c;
 }
 // 통강조: 머리(위 고정 띠)·꼬리(아래 고정 띠)를 뺀 나머지가 장면 영역
-const TONG = { pad: 80, head: 270, foot: 300, gap: 70 };
-function tongArea(proj) {
-  const top = (proj.head ? TONG.head : 0) + TONG.gap, bot = H - (proj.foot ? TONG.foot : 0) - TONG.gap;
+const TONG = { pad: 80, head: 270, foot: 300, gap: 70, dan: 150 };
+// 단서 자막: 장면에 따로 쓴 게 있으면 그것, 없으면 전체(첫 줄 '단서:'). '없음'이면 그 장면은 안 보임
+function danFor(proj, sc) {
+  const own = sc && sc.opts && sc.opts.단서 !== undefined ? String(sc.opts.단서).trim() : null;
+  const v = own !== null && own !== '' ? own : String(proj.dan || '').trim();
+  return v === '없음' ? '' : v;
+}
+function tongArea(proj, sc) {
+  const top = (proj.head ? TONG.head : 0) + TONG.gap, bot = H - (proj.foot ? TONG.foot : 0) - TONG.gap - (danFor(proj, sc) ? TONG.dan : 0);
   const a = { x: TONG.pad, y: top, w: W - TONG.pad * 2, h: bot - top }; a.cx = a.x + a.w / 2; a.cy = a.y + a.h / 2; return a;
 }
-function areaFor(proj) { return STAGE === 'tong' ? tongArea(proj) : Object.assign({}, AREAS[proj.lbar] || AREAS.full); }
+function areaFor(proj, sc) { return STAGE === 'tong' ? tongArea(proj, sc) : Object.assign({}, AREAS[proj.lbar] || AREAS.full); }
 function safeFor(proj) {
   if (STAGE !== 'tong') return SAFE[proj.lbar] || SAFE.full;
   const top = proj.head ? TONG.head : 0, bot = H - (proj.foot ? TONG.foot : 0);
@@ -40,7 +46,7 @@ function sceneEnv(proj, i, t) {
   const P = Object.assign({}, th.pal[v]);
   if (sc.opts.색) P.em = sc.opts.색;
   const fontId = fontFromName(sc.opts.폰트) || proj.font || th.font;
-  let A = areaFor(proj);
+  let A = areaFor(proj, sc);
   const motion = MOTIONS[sc.opts.모션] || proj.motion || 'pop';
   return { sc, th, v, P, F: FONTS[fontId] || FONTS.blackhan, A, lt: t - sc.start, D: sc.dur, t, motion, opts: sc.opts, img: n => { const a = n && proj.assets[n]; if (!a) return null; a.img.hfScale = (a.scale || 100) / 100; return a.img; } };
 }
@@ -225,7 +231,8 @@ function renderFrame(ctx, proj, t, view = {}) {
   }
   Collector.on = false;
   ctx.restore();
-  if (STAGE === 'tong') drawTongChrome(ctx, proj, t); else drawDisclaimer(ctx, proj);
+  if (STAGE === 'tong') drawTongChrome(ctx, proj, t);
+  drawDisclaimer(ctx, proj, S[i]);
   drawOverlay(ctx, proj, view);
 }
 

@@ -12,7 +12,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const sz = await page.evaluate(() => { const a = Object.values(S.assets)[0].img; return [a.width, a.height]; }); console.log('after bg remove', sz);
   // 장면 선택 + 인스펙터 변경
   await page.click('#timeline', { position: { x: 30, y: 20 } }); await page.waitForTimeout(200);
-  await page.selectOption('#insp select[data-k="모션"]', '드롭'); await page.waitForTimeout(300);
+  await page.evaluate(() => { const d = document.getElementById('iDesign'); if (d) d.open = true; });
+  await page.selectOption('#sceneText select[data-k="모션"]', '드롭'); await page.waitForTimeout(300);
   console.log('first line:', await page.evaluate(() => document.getElementById('sb').value.split('\n')[1]));
   await page.screenshot({ path: 'test/ui2.png' });
   console.log('codec', await page.evaluate(async () => { const c = await pickVideoCodec(29.97); return c && c.codec; }));

@@ -27,11 +27,11 @@ const STYLES = {
   party: { name: '축하 파티', theme: 'celebrate', font: 'bagel', feel: '보통', motions: ['바운스', '팝', '회전'], trans: ['원형', '줌', '블라인드'], fx: [], blockFx: { 훅: ['컨페티'], 가격: ['폭죽', '컨페티'], 한정: ['풍선'] } },
   blue: { name: '블루 초특가', theme: 'blue', font: 'blackhan', feel: '강하게', motions: ['스탬프', '줌인', '슬라이드'], trans: ['플래시', '밀기'], fx: [], blockFx: { 가격: ['집중선'], 한정: ['스포트라이트'] } },
   // 인서트 예시(DB0) 참고: 큰 글자를 빠르게 바꿔 치는 타이포 위주
-  ins_black: { name: '인서트 블랙레드', theme: 'impact', font: 'blackhan', feel: '강하게', motions: ['스탬프', '줌인', '팝'], trans: ['컷', '플래시', '글리치'], fx: ['종이질감'], blockFx: { 훅: ['폭죽'], 가격: ['폭죽'], 한정: ['화살표상승'], 강조: ['글자패턴'] }, impact: ['반복', '박스'], insert: true,
+  ins_black: { name: '타이포 블랙레드', theme: 'impact', font: 'blackhan', feel: '강하게', motions: ['스탬프', '줌인', '팝'], trans: ['컷', '플래시', '글리치'], fx: ['종이질감'], blockFx: { 훅: ['폭죽'], 가격: ['폭죽'], 한정: ['화살표상승'], 강조: ['글자패턴'] }, impact: ['반복', '박스'], insert: true,
     copy: { hookA: ['지금 이 방송', '오직 방송에서만', '단 한 번'], hookB: ['*찬란한 혜택!*', '*최저가 찬스*', '*역대급 구성*'], impact: ['최저가', '파격가', '역대급'] } },
-  ins_orange: { name: '인서트 반값 오렌지', theme: 'halfsale', font: 'gasoek', feel: '강하게', motions: ['스탬프', '드롭', '팝'], trans: ['와이프', '컷', '플래시'], fx: [], blockFx: { 가격: ['대각분할'], 한정: ['화살표상승'], 훅: ['대각분할'] }, impact: ['박스', '기울임'], insert: true,
+  ins_orange: { name: '타이포 반값 오렌지', theme: 'halfsale', font: 'gasoek', feel: '강하게', motions: ['스탬프', '드롭', '팝'], trans: ['와이프', '컷', '플래시'], fx: [], blockFx: { 가격: ['대각분할'], 한정: ['화살표상승'], 훅: ['대각분할'] }, impact: ['박스', '기울임'], insert: true,
     copy: { hookA: ['오직 방송에서만', '오늘 단 하루', '이번 방송'], hookB: ['*반값*으로 뚝!', '*파격* 세일', '*기회*를 잡으세요!'], impact: ['반값', '파격세일', '특가'] } },
-  ins_sale: { name: '인서트 세일 레드', theme: 'salered', font: 'notoblack', feel: '강하게', motions: ['슬라이드', '스탬프', '줌인'], trans: ['밀기', '컷', '플래시'], fx: [], blockFx: { 강조: ['글자패턴'], 가격: ['글자패턴'], 한정: ['화살표상승'] }, impact: ['반복', '박스'], insert: true,
+  ins_sale: { name: '타이포 세일 레드', theme: 'salered', font: 'notoblack', feel: '강하게', motions: ['슬라이드', '스탬프', '줌인'], trans: ['밀기', '컷', '플래시'], fx: [], blockFx: { 강조: ['글자패턴'], 가격: ['글자패턴'], 한정: ['화살표상승'] }, impact: ['반복', '박스'], insert: true,
     copy: { hookA: ['지금 이 방송', '특집 생방송', '이번 회차'], hookB: ['*채널고정!*', '*파격 세일*', '*놓치지 마세요!*'], impact: ['SALE', '파격세일', '특별한 파격가'] } },
 };
 
@@ -45,11 +45,15 @@ const MOOD_RULES = [
   [/초특가|가전|다리미|청소기|냉장고|세탁|에어컨|TV/, 'blue'],
   [/정리|수납|생활|주방|욕실|압축|휴지통/, 'clean'],
 ];
-function guessTheme(d) {
-  const txt = [d.product, d.hook, d.record, ...(d.benefits || []), d.urgent, ...(d.comps || []).map(c => c.name)].join(' ');
+// 상품 정보 글자에서 분위기 단어를 찾아 테마를 고름 (못 찾으면 null)
+function guessThemeKw(d) {
+  const txt = [d.product, d.hook, d.record, ...(d.benefits || []), ...(d.points || []), d.urgent, ...(d.comps || []).map(c => c.name)].join(' ');
   for (const [re, id] of MOOD_RULES) if (re.test(txt)) return id;
-  return 'ns';
+  return null;
 }
+function guessTheme(d) { return guessThemeKw(d) || 'ns'; }
+// 가격 장면 숫자 연출: 자동이면 정가가 있을 때 '내려가기'
+function priceMotionOpt(d, P) { const m = d.priceMotion || '자동'; return m === '내려가기' || (m === '자동' && P.list) ? { 가격모션: '내려가기' } : {}; }
 
 // 가격 문자열 다듬기: "29700" → "29,700원"
 function formatPrice(p) {
@@ -141,7 +145,7 @@ function directStoryboard(d, seed = 1) {
   const pointsScene = () => { if (points.length >= 2) add('포인트', [pick(['이래서 *잘 팔려요*', '*핵심* 포인트', '왜 *이 상품*일까'], 16), ...points.slice(0, 4)]); };
   const priceScene = () => {
     if (!price) return;
-    const o = {}; if (P.list) o.정가 = won(P.list); if (P.rate > 0) o.할인 = P.rate + '%';
+    const o = {}; if (P.list) o.정가 = won(P.list); if (P.rate > 0) o.할인 = P.rate + '%'; Object.assign(o, priceMotionOpt(d, P));
     add('가격', [pricePre, price, d.priceNote || ''], o);
     if (P.per && d.perScene !== false) add('가격', [`1${P.unit}당`, `약 ${won(P.per)}꼴`, d.perNote || '']);
   };
@@ -176,6 +180,7 @@ function directStoryboard(d, seed = 1) {
   });
 
   const head = { 테마: THEMES[themeId].name, 길이: String(dur), 형식: fmt, L바: fmt === '오프닝필러' ? '하단바' : '기본', 느낌: feel };
+  if (d.dan) head.단서 = d.dan;
   if (themeId === 'key') head.키컬러 = d.key || THEMES.key.hex;
   if (fontId && FONTS[fontId]) head.폰트 = FONTS[fontId].name.split(' ')[0];
   if (ST && ST.fx.length) head.효과 = ST.fx.join('+');
@@ -213,7 +218,7 @@ function directTong(d, seed = 1) {
   // 4) 구성
   if (comps.length) { const total = comps.reduce((a, c) => a + (parseInt(c.qty) || 1), 0), u = String(d.unit || '').trim() || '개'; add('구성표', [total > 1 ? `총 *${total}${u}*` : '*방송 단독* 구성', comps.slice(0, 3).map(c => `${c.name}${c.img ? ' @' + c.img : ''}${parseInt(c.qty) > 1 ? ' x' + parseInt(c.qty) : ''}`).join(' + ')]); }
   // 5) 가격 (+ 1개당)
-  if (price) { const o = {}; if (P.list) o.정가 = won(P.list); if (P.rate > 0) o.할인 = P.rate + '%'; add('가격', [d.pricePre || pick(['단,', '방송 특가', '최종혜택가'], 7), price, d.priceNote || ''], o);
+  if (price) { const o = {}; if (P.list) o.정가 = won(P.list); if (P.rate > 0) o.할인 = P.rate + '%'; Object.assign(o, priceMotionOpt(d, P)); add('가격', [d.pricePre || pick(['단,', '방송 특가', '최종혜택가'], 7), price, d.priceNote || ''], o);
     if (P.per && d.perScene !== false) add('가격', [`1${P.unit}당`, `약 ${won(P.per)}꼴`]); }
   // 6) 혜택 · 한정
   if (benefits.length >= 2) add('혜택', ['*방송에서만* 혜택', ...benefits.slice(0, 3)]);
@@ -233,6 +238,7 @@ function directTong(d, seed = 1) {
   const ft = d.tongFoot || (benefits[0] ? `방송에서만 | *${benefits[0]}*` : P.rate ? `지금 주문하면 | *${P.rate}% 할인*` : '');
   if (hd) head.머리 = hd.replace(/\//g, '|'); if (ft) head.꼬리 = ft.replace(/\//g, '|');
   head.틀 = ST ? TONG_STYLE_FRAME[d.style] || '카드' : pick(['카드', '없음', '테두리', '코너'], 30);
+  if (d.dan) head.단서 = d.dan;
   head.느낌 = feel;
   if (themeId === 'key') head.키컬러 = d.key || THEMES.key.hex;
   if (fontId && FONTS[fontId]) head.폰트 = FONTS[fontId].name.split(' ')[0];
@@ -240,14 +246,14 @@ function directTong(d, seed = 1) {
   return serializeSettings(head) + '\n' + S.map(s => serializeScene({ label: s.block, lines: s.lines, opts: s.opts })).join('\n');
 }
 
-// ===== 인서트 자동 연출: 큰 글자를 빠르게 바꿔 치는 키네틱 타이포 (DB0 예시 참고) =====
+// ===== 타이포 강조형 자동 연출 (예전 '인서트' 형식): 큰 글자를 빠르게 바꿔 치는 키네틱 타이포 (DB0 예시 참고) =====
 function directInsert(d, seed = 1) {
   const r = k => seededRand(seed + 13, k);
   const pick = (arr, k) => arr[Math.floor(r(k) * arr.length) % arr.length];
   const ST = STYLES[d.style] || null;
   const themeId = d.theme === 'key' ? 'key' : ST ? ST.theme : (d.theme && THEMES[d.theme] ? d.theme : pick(['impact', 'halfsale', 'salered'], 1));
   const fontId = d.theme === 'key' ? d.font : ST ? ST.font : d.font;
-  const dur = d.fmt === '인서트' && d.dur ? d.dur : 15;
+  const fmt = d.fmt === '오프닝필러' ? '오프닝필러' : '하드필러', dur = d.dur || 15;
   const product = String(d.product || '').trim(), P = calcPrice(d), rate = P.rate > 0 ? P.rate : 0;
   const price = P.auto ? won(P.price) : formatPrice(d.price);
   const comps = (d.comps || []).filter(c => c.name), firstImg = (comps.find(c => c.img) || {}).img;
@@ -270,7 +276,7 @@ function directInsert(d, seed = 1) {
   const word = pick(cp('impact', ['최저가', '파격가', '역대급']), 7);
   add('타이포', [`(크게)*${plain(word)}*`], { 스타일: '교체', 효과: '글자패턴+플래시', 패턴: plain(word) }, 'word');
   // 5) 가격
-  if (price) { const o = {}; if (P.list) o.정가 = won(P.list); if (rate) o.할인 = rate + '%'; add('가격', [d.pricePre || pick(['단,', '방송에서만', '최종혜택가'], 8), price, d.priceNote || ''], o, 'price'); }
+  if (price) { const o = {}; if (P.list) o.정가 = won(P.list); if (rate) o.할인 = rate + '%'; Object.assign(o, priceMotionOpt(d, P)); add('가격', [d.pricePre || pick(['단,', '방송에서만', '최종혜택가'], 8), price, d.priceNote || ''], o, 'price'); }
   // 6) 소구점(특징·포인트)을 한 줄씩 크게 박음
   if (points.length) add('타이포', ['(작게)이래서 잘 팔려요', ...points.slice(0, 3).map(b => emph(b))], { 스타일: '교체' }, 'benefit');
   // 7) 방송 끝나면 가격은 올라갑니다
@@ -289,7 +295,7 @@ function directInsert(d, seed = 1) {
     if (i < S.length - 1) s.opts.전환 = pick(trans, 300 + i);
     const bfx = ST && ST.blockFx && ST.blockFx[s.block]; if (bfx && !s.opts.효과) s.opts.효과 = bfx.join('+');
   });
-  const head = { 형식: '인서트', 테마: THEMES[themeId].name, 길이: String(dur), L바: '기본', 느낌: '강하게' };
+  const head = { 형식: fmt, 테마: THEMES[themeId].name, 길이: String(dur), L바: fmt === '오프닝필러' ? '하단바' : '기본', 느낌: '강하게' };
   if (themeId === 'key') head.키컬러 = d.key || THEMES.key.hex;
   if (fontId && FONTS[fontId]) head.폰트 = FONTS[fontId].name.split(' ')[0];
   if (ST && ST.fx.length) head.효과 = ST.fx.join('+');
@@ -301,23 +307,23 @@ function directInsert(d, seed = 1) {
 function aiGrammarDoc() {
   const blocks = Object.entries(BLOCKS).filter(([id]) => id !== 'benefits').map(([id, b]) => `- [${BLOCK_LABEL[id]}] ${b.name}: ${b.help}. 예) ${b.sample}`).join('\n');
   return `홈쇼핑 "하드필러" 영상의 스토리보드 문법.
-첫 줄은 설정: 테마: <이름> / 길이: <초> / 형식: 하드필러|오프닝필러|인서트|통강조 / L바: 기본|하단바|없음 / 느낌: 부드럽게|보통|강하게 / 폰트: <이름> / 효과: <효과+효과> (전체 장면에 깔리는 효과, 선택) / 단서: <제목 | 작은 고지 문구> (선택, 단서자막 자리에 작게) / 이미지크기: <퍼센트, 기본 100> / 자간: <글자 사이 간격, 글자 크기의 %, 기본 0, 예 -5·10> / 행간: <줄 간격 %, 기본 100>
+첫 줄은 설정: 테마: <이름> / 길이: <초> / 형식: 하드필러|오프닝필러|통강조 / L바: 기본|하단바|없음 / 느낌: 부드럽게|보통|강하게 / 폰트: <이름> / 효과: <효과+효과> (전체 장면에 깔리는 효과, 선택) / 단서: <제목 | 작은 고지 문구> (선택, 단서자막 자리에 작게) / 이미지크기: <퍼센트, 기본 100> / 자간: <글자 사이 간격, 글자 크기의 %, 기본 0, 예 -5·10> / 행간: <줄 간격 %, 기본 100>
   (테마를 "키컬러"로 하면 키컬러: #hex 한 색으로 배경·글자색을 맞춰 만듦. 사용자가 키컬러를 정했으면 그 테마를 우선 고려)
 그 다음부터 한 줄이 한 장면: [블록] 문구 / 문구 {옵션: 값, 옵션: 값}
 - "/"는 화면의 줄바꿈. *별표*로 감싼 부분은 포인트 색으로 강조.
 - @이름 은 사용자가 올린 이미지(아래 목록에 있는 이름만). x8 은 수량.
 블록 종류:
 ${blocks}
-[가격] 전용 옵션: 정가(취소선으로 표시, 예 99,000원) · 할인(배지, 예 23%)
+[가격] 전용 옵션: 정가(취소선으로 표시, 예 99,000원) · 할인(배지, 예 23%) · 가격모션(굴리기: 숫자가 슬롯처럼 돌다 멈춤(기본) | 내려가기: 정가에서 판매가로 숫자가 내려옴. 할인을 강조할 때)
 효과(장면 옵션, +로 여러 개, 없음=전체 효과 끄기): ${EFFECT_NAMES.join('·')}
 [타이포] 줄 앞 꾸밈: (외곽) 속 빈 글자 · (박스) 색 상자 안 글자 · (테이프) 기울어진 띠 · (입체) 긴 그림자 · (자간) 넓은 자간 · (작게) 작은 머리 줄 · (크게) 더 크게. 스타일: 쌓기(줄이 하나씩 쌓임) | 교체(한 줄씩 화면 가득 바꿔 침). 효과 글자패턴은 옵션 패턴: <반복할 단어> 로 단어를 정할 수 있음.
-옵션: 길이(초, 보통 비움) · 크기(이미지 크기 퍼센트, 예 130) · 자간(%) · 행간(%) · 모션(${Object.keys(MOTIONS).join('·')}) · 전환(${TRANSITIONS.join('·')}) · 배경(1·2·3: 테마 안의 배경 종류) · 소품(${PROPS_LIST.join('·')}) · 이미지(이름) · 스타일([강조] 전용: 분리·반복·기울임·박스) · 강조박스 · 색(#hex) · 위치(좌·우)
+옵션: 단서(이 장면에만 나오는 단서 자막 "제목 | 고지 문구", 쉼표가 있으면 "따옴표"로 감쌈, 없음=이 장면은 단서 자막 빼기) · 길이(초, 보통 비움) · 크기(이미지 크기 퍼센트, 예 130) · 자간(%) · 행간(%) · 모션(${Object.keys(MOTIONS).join('·')}) · 전환(${TRANSITIONS.join('·')}) · 배경(1·2·3: 테마 안의 배경 종류) · 소품(${PROPS_LIST.join('·')}) · 이미지(이름) · 스타일([강조] 전용: 분리·반복·기울임·박스) · 강조박스 · 색(#hex) · 위치(좌·우)
 테마 이름: ${Object.values(THEMES).map(t => t.name).join(', ')}
 폰트 이름: ${Object.values(FONTS).map(f => f.name.split(' ')[0]).join(', ')}
 통강조(형식: 통강조): L바 왼쪽 네모 안에 들어가는 376×790 세로 영상. L바 설정은 쓰지 않고 대신
   머리: <위 고정 띠 문구, | 로 두 줄> / 꼬리: <아래 고정 띠 문구, | 로 두 줄> / 틀: ${TONG_FRAMES.join('|')} 를 씀.
   세로로 좁으니 한 줄은 6자 안팎. 최대 8초라서 장면은 2개(예: 상품·강조 한 장면 + 가격 한 장면), 길이 8초. [배지]·[강조]·[가격] 블록이 잘 어울림. 소품 TV는 쓰지 않음.
-인서트(형식: 인서트): 하드필러와 같은 L바 화면이지만 큰 글자를 1~2초마다 빠르게 바꿔 치는 키네틱 타이포 위주. [타이포] 블록을 중심으로 7~10장면, 길이 13~20초. 배경 효과 글자패턴·화살표하락(가격 내려감)·화살표상승(방송 끝나면 가격 오름)·대각분할·원형스포트·폭죽·플래시가 잘 어울림. 전환은 컷·플래시 위주로 빠르게.
+타이포 강조형(인서트식, 형식은 하드필러): 같은 L바 화면에서 큰 글자를 1~2초마다 빠르게 바꿔 치는 키네틱 타이포 위주. 사용자가 연출 방식을 '타이포 강조형'으로 골랐으면 이렇게 구성. [타이포] 블록을 중심으로 7~10장면, 길이 13~20초. 배경 효과 글자패턴·화살표하락(가격 내려감)·화살표상승(방송 끝나면 가격 오름)·대각분할·원형스포트·폭죽·플래시가 잘 어울림. 전환은 컷·플래시 위주로 빠르게.
 규칙:
 - 화면 한 줄은 짧게(큰 글자 줄은 8자 안팎, 작은 줄 14자 안팎). 한 장면에 2~4줄.
 - 전체 길이 20초 전후 하드필러는 6~8장면, 장면당 2~3.5초가 되도록 구성.

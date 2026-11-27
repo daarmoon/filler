@@ -147,7 +147,7 @@ EFFECT_NAMES.length = 0; EFFECT_NAMES.push(...Object.keys(EFFECTS));
 // ---------- 인서트 테마 3종 ----------
 Object.assign(THEMES, {
   impact: {
-    name: '임팩트 블랙레드 (인서트)', font: 'blackhan',
+    name: '임팩트 블랙레드 (타이포)', font: 'blackhan',
     pal: [
       { text: '#ffffff', em: '#ff2b1c', sub: '#e6e6e6', stroke: null, shadow: 'rgba(0,0,0,.55)', emBox: '#e5120a', emBoxText: '#ffffff', accent: '#e5120a', accent2: '#ffffff', card: '#ffffff', cardText: '#e5120a' },
       { text: '#ffffff', em: '#111111', sub: '#ffe1de', stroke: null, shadow: 'rgba(80,0,0,.4)', emBox: '#111111', emBoxText: '#ffffff', accent: '#ffffff', accent2: '#111111', card: '#ffffff', cardText: '#c80d05' },
@@ -161,7 +161,7 @@ Object.assign(THEMES, {
     fx(ctx, t, v) { if (v === 0) FX.embers(ctx, t, 18, '#ff5a2a'); },
   },
   halfsale: {
-    name: '반값 오렌지 (인서트)', font: 'gasoek',
+    name: '반값 오렌지 (타이포)', font: 'gasoek',
     pal: [
       { text: '#ffffff', em: '#ffe14a', sub: '#fff1e0', stroke: null, shadow: 'rgba(90,30,0,.55)', shadowOff: 3, emBox: '#1a1a1a', emBoxText: '#ffffff', accent: '#1a1a1a', accent2: '#ffe14a', card: '#ffffff', cardText: '#f05a0a' },
       { text: '#ffffff', em: '#ffe600', sub: '#ffd9cf', stroke: null, shadow: 'rgba(0,0,0,.45)', emBox: '#ffe600', emBoxText: '#7a0000', accent: '#ff1e10', accent2: '#ffe600', card: '#ffe600', cardText: '#7a0000' },
@@ -175,7 +175,7 @@ Object.assign(THEMES, {
     fx() { },
   },
   salered: {
-    name: '세일 레드/네이비 (인서트)', font: 'notoblack',
+    name: '세일 레드/네이비 (타이포)', font: 'notoblack',
     pal: [
       { text: '#ffffff', em: '#ff3348', sub: '#dfe4ff', stroke: null, shadow: 'rgba(0,0,40,.45)', emBox: '#e8102e', emBoxText: '#ffffff', accent: '#e8102e', accent2: '#ffffff', card: '#e8102e', cardText: '#ffffff' },
       { text: '#ffffff', em: '#ffe0e4', sub: '#ffd0d6', stroke: null, shadow: 'rgba(60,0,10,.4)', emBox: '#ffffff', emBoxText: '#c8001e', accent: '#ffffff', accent2: '#1f2a5a', card: '#ffffff', cardText: '#c8001e' },
@@ -190,16 +190,27 @@ Object.assign(THEMES, {
   },
 });
 
-// ---------- 단서 자막 (`단서: 제목 | 내용`) : L바 가이드의 단서자막 자리에 작게 ----------
-function drawDisclaimer(ctx, proj) {
-  const d = (proj.dan || '').trim(); if (!d || STAGE !== 'wide') return;
+// ---------- 단서 자막 (`단서: 제목 | 내용`) : L바 가이드의 단서자막 자리에 작게 (장면마다 따로 쓸 수 있음) ----------
+function drawDisclaimer(ctx, proj, sc) {
+  const d = danFor(proj, sc); if (!d) return;
   let [title, body] = d.includes('|') ? d.split('|').map(s => s.trim()) : ['', d];
   if (!body) { body = title; title = ''; }
+  if (STAGE === 'tong') { drawTongDisclaimer(ctx, proj, title, body); return; }
   const x = proj.lbar === 'none' ? 110 : 463, yB = proj.lbar === 'none' ? H - 70 : 943;
   ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
   if (title) { ctx.font = `900 30px ${SUBFONT.family}`; ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeText(title, x, yB - 36); ctx.fillText(title, x, yB - 36); }
   ctx.font = `500 22px ${SUBFONT.family}`; const w = Math.min(ctx.measureText(body).width + 18, 830);
   ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x - 6, yB - 15, w, 30); ctx.fillStyle = '#ffffff';
   ctx.save(); ctx.beginPath(); ctx.rect(x - 6, yB - 16, w, 32); ctx.clip(); ctx.fillText(body, x + 3, yB + 1); ctx.restore();
+  ctx.restore();
+}
+// 통강조: 아래 띠(꼬리) 바로 위에 작게 (영상 크기 376×790 기준 약 13px)
+function drawTongDisclaimer(ctx, proj, title, body) {
+  const yB = H - (proj.foot ? TONG.foot : 0) - 52, x = 60, maxW = W - 120;
+  ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  if (title) { ctx.font = `900 50px ${SUBFONT.family}`; ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeText(title, x, yB - 62, maxW); ctx.fillText(title, x, yB - 62, maxW); }
+  ctx.font = `500 38px ${SUBFONT.family}`; const w = Math.min(ctx.measureText(body).width + 28, maxW + 12);
+  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x - 8, yB - 26, w, 52); ctx.fillStyle = '#ffffff';
+  ctx.save(); ctx.beginPath(); ctx.rect(x - 8, yB - 27, w, 54); ctx.clip(); ctx.fillText(body, x + 6, yB + 1); ctx.restore();
   ctx.restore();
 }

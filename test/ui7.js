@@ -1,4 +1,4 @@
-// v6 확인: 인서트 탭, 타이포, 단서 자막, 이미지 크기, 여백 자르기
+// v6 확인(v8 갱신): 타이포 강조형 연출, 타이포, 단서 자막, 이미지 크기, 여백 자르기
 const { chromium } = require('playwright'); const path = require('path'); const fs = require('fs');
 (async () => {
   const out = process.argv[2] || 'test/v6'; fs.mkdirSync(out, { recursive: true });
@@ -10,9 +10,11 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.setInputFiles('#imgFile', 'test/product.png'); await page.waitForTimeout(500);
   console.log('asset size after trim:', await page.evaluate(() => Object.values(S.assets).map(a => a.img.width + 'x' + a.img.height)));
   console.log('ver:', await page.textContent('#appVer'));
-  // 인서트 탭
-  await page.click('#fmtSeg button[data-v="인서트"]'); await page.waitForTimeout(600); await page.click('#dirBtn'); await page.waitForTimeout(800);
+  // 타이포 강조형 연출 (옛 인서트 탭)
+  await page.click('#fmtSeg button[data-v="하드필러"]'); await page.waitForTimeout(400);
+  await page.click('#recipeSeg button[data-v="typo"]'); await page.waitForTimeout(200); await page.click('#dirBtn'); await page.waitForTimeout(800);
   const sb = await page.inputValue('#sb'); console.log('insert head:', sb.split('\n')[0]); console.log('insert scenes:', await page.evaluate(() => S.scenes.map(s => s.type + (s.opts.스타일 ? '/' + s.opts.스타일 : '')).join(', ')), await page.evaluate(() => S.total.toFixed(1)));
+  await page.evaluate(() => { const d = document.querySelector('#fDan').closest('details'); if (d) d.open = true; });
   console.log('fDan visible:', await page.isVisible('#fDan'), 'imgK visible:', await page.isVisible('#imgK'));
   await page.fill('#fDan', '박스당 최저가격찬스 | NS기준, 50% 세일, 총5회'); await page.press('#fDan', 'Tab'); await page.waitForTimeout(300);
   console.log('after dan:', (await page.inputValue('#sb')).split('\n')[0]);
@@ -21,8 +23,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   // 전체 이미지 크기
   await page.$eval('#imgK', el => { el.value = 150; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('change')); }); await page.waitForTimeout(300);
   console.log('after imgK:', (await page.inputValue('#sb')).split('\n')[0]);
-  // 하드필러에서 상품 장면 이미지 크기
-  await page.click('#fmtSeg button[data-v="하드필러"]'); await page.waitForTimeout(800);
+  // 상품 소개형으로 다시 연출해서 상품 장면 이미지 크기
+  await page.click('#recipeSeg button[data-v="product"]'); await page.waitForTimeout(200); await page.click('#dirBtn'); await page.waitForTimeout(800);
   const pi = await page.evaluate(() => S.scenes.findIndex(s => s.type === 'product'));
   const measure = () => page.evaluate(i => { const sc = S.scenes[i]; Collector.boxes = []; Collector.on = true; const c = document.createElement('canvas'); c.width = W; c.height = H; renderFrame(c.getContext('2d'), proj(), sc.start + sc.dur * .8, { warn: true }); const b = (Collector.boxes || []).filter(x => x.label === '이미지'); Collector.on = false; return b.map(x => Math.round(x.w) + 'x' + Math.round(x.h)).join(' '); }, pi);
   console.log('product img box @100%:', await measure());
@@ -33,8 +35,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   console.log('product img box @160%:', await measure());
   await page.evaluate(i => { S.sel = i; const sc = S.scenes[i]; S.t = sc.start + sc.dur * .8; S.dirty = true; }, pi); await page.waitForTimeout(400);
   await page.screenshot({ path: `${out}/ui_imgsize.png` });
-  // 여러 버전 (인서트)
-  await page.click('#fmtSeg button[data-v="인서트"]'); await page.waitForTimeout(800);
+  // 여러 버전 (타이포 강조형)
+  await page.click('#tabs button[data-p="quick"]'); await page.click('#recipeSeg button[data-v="typo"]'); await page.waitForTimeout(300);
   await page.click('#multiBtn'); await page.waitForTimeout(4000);
   console.log('insert variants:', await page.evaluate(() => VARS.map(v => v.name)));
   // 짧게 내보내기

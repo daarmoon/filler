@@ -56,7 +56,7 @@ header{display:flex;align-items:center;gap:14px;padding:12px 22px;background:var
 .durBox input[type=number]{width:58px;padding:3px 6px;background:#fff;text-align:center}
 .spacer{flex:1}
 
-main{display:grid;grid-template-columns:400px minmax(0,1fr) 330px;gap:18px;padding:18px 22px;height:calc(100vh - 63px)}
+main{display:grid;grid-template-columns:430px minmax(0,1fr) 320px;gap:18px;padding:18px 22px;height:calc(100vh - 63px)}
 .col{display:flex;flex-direction:column;gap:14px;overflow:auto;padding:2px 4px 18px;scrollbar-width:thin}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:16px}
 .card h3{margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px}
@@ -236,9 +236,28 @@ progress{width:100%;height:10px;accent-color:var(--red)}
 .stItem .du{font-size:11px;color:var(--dim)}
 .stEmpty{border:2px dashed var(--line2);border-radius:12px;padding:18px;text-align:center;color:var(--dim);font-size:13px}
 .stack .sceneCard{margin:-6px 0 4px;border-top-left-radius:4px;border-top-right-radius:4px;border-color:var(--red);padding:12px}
-.stack .sceneCard h3{display:none}
 .tabs button{padding:9px 4px;font-size:13px}
 .sceneCard textarea{min-height:96px;font:13px/1.55 'Noto Sans KR',monospace}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.grid3 .field{margin-bottom:9px;min-width:0}
+.grid3 select,.grid3 input[type=text]{padding:7px 24px 7px 9px;font-size:12.5px}
+.grid3 input[type=text]{padding-right:9px}
+details.more{border-top:1px dashed var(--line2);margin-top:4px;padding-top:8px}
+details.more>summary,details.scDesign>summary{cursor:pointer;font-weight:700;font-size:12.5px;color:var(--ink2);list-style:none;display:flex;align-items:center;gap:6px;padding:4px 0}
+details.more>summary::-webkit-details-marker,details.scDesign>summary::-webkit-details-marker{display:none}
+details.more>summary::before,details.scDesign>summary::before{content:'';width:6px;height:6px;border-right:2px solid #999;border-bottom:2px solid #999;transform:rotate(-45deg);transition:transform .15s;margin:0 4px 0 2px}
+details.more[open]>summary::before,details.scDesign[open]>summary::before{transform:rotate(45deg)}
+details.more[open]>summary{margin-bottom:6px}
+details.scDesign{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:6px 10px;margin:4px 0 10px}
+details.scDesign[open]{padding-bottom:10px}
+details.scDesign[open]>summary{margin-bottom:8px}
+details.scDesign select,details.scDesign input[type=text]{background-color:#fff}
+.lineTools{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px}
+.lineTools button{padding:3px 9px;font-size:11.5px;background:var(--field);border-color:var(--line);font-weight:500}
+.lineTools button:hover{background:var(--red-soft);border-color:var(--red-mid);color:var(--red);transform:none}
+.lineTools button.em{color:var(--red);font-weight:700}
+.secLabel{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.3px;margin:2px 0 6px}
+.stItem .ty{border-radius:999px;padding:2px 0;text-align:center;font-size:12px}
 .tongOnly{display:none!important}
 body.tong .tongOnly{display:flex!important}
 body.tong .row2.tongOnly{display:grid!important}
@@ -263,7 +282,7 @@ body.tong .wideOnly{display:none!important}
 <body>
 <header>
   <div class="brand"><div class="mark">H</div><h1>하드필러 <span>메이커</span></h1><small class="ver" id="appVer"></small></div>
-  <div class="seg fmtTabs" id="fmtSeg"><button data-v="하드필러" class="on">하드필러</button><button data-v="오프닝필러">오프닝필러</button><button data-v="인서트" title="큰 글자를 빠르게 바꿔 치는 타이포 영상 (L바 화면)">인서트</button><button data-v="통강조" title="L바 왼쪽 네모 안에 들어가는 세로 영상 (376×790)">통강조</button></div>
+  <div class="seg fmtTabs" id="fmtSeg"><button data-v="하드필러" class="on">하드필러</button><button data-v="오프닝필러">오프닝필러</button><button data-v="통강조" title="L바 왼쪽 네모 안에 들어가는 세로 영상 (376×790)">통강조</button></div>
   <div class="durBox"><label>길이</label><input type="range" id="durRange" min="5" max="30" step="0.5" value="20"><input type="number" id="durNum" min="3" max="60" step="0.5" value="20"><span class="dim">초</span></div>
   <div class="spacer"></div>
   <button class="ghost" id="newBtn" title="빈 화면에서 새로 시작 (되돌리기 가능)">＋ 새로 만들기</button>
@@ -275,11 +294,9 @@ body.tong .wideOnly{display:none!important}
 <main>
   <!-- 왼쪽: 상품 · 문구 · 숫자 · 프롬프트 -->
   <section class="col">
-    <div class="colHead"><b>내용</b><span class="dim">상품 · 문구 · 숫자 · AI 요청</span></div>
-    <div id="sceneHome"><div class="card sceneCard" id="sceneCard" hidden>
-      <h3>✏️ 선택한 장면 문구 <span class="badge" id="scBadge"></span></h3>
-      <div id="sceneText"></div>
-    </div></div>
+    <div class="colHead"><b>내용</b><span class="dim">장면 · 문구 · 자동 연출</span></div>
+    <!-- 장면 편집 칸: 직접 만들기의 장면 목록 안(고른 장면 바로 아래)에만 펼쳐짐. 다른 탭에서는 여기 숨겨 둠 -->
+    <div id="sceneHome" hidden><div class="card sceneCard" id="sceneCard" hidden><div id="sceneText"></div></div></div>
     <div class="tabs" id="tabs"><button data-p="build" class="on">🧱 직접 만들기</button><button data-p="quick">✨ 자동 연출</button><button data-p="board">📝 스토리보드</button><button data-p="src">🖼 소스</button></div>
 
     <div class="pane on" id="pane-build">
@@ -288,23 +305,27 @@ body.tong .wideOnly{display:none!important}
         <div class="palette" id="palette"></div>
       </div>
       <div class="card">
-        <h3><span class="num">2</span>내 장면 · 문구 쓰기 <span class="badge" id="stackCount"></span></h3>
+        <h3><span class="num">2</span>내 장면 · 장면별 설정 <span class="badge" id="stackCount"></span></h3>
         <div class="stack" id="stack"></div>
-        <div class="hint" style="margin-top:10px">장면을 누르면 그 자리에서 문구를 쓸 수 있어요. 한 줄이 화면의 한 줄, <code>*별표*</code>로 감싸면 포인트 색이에요. 순서는 아래 장면 썸네일을 끌어서 바꿔요.<br>참고용 예시가 필요하면 📝 스토리보드 탭의 ‘예시 불러오기’, 상품 정보로 한 번에 만들려면 ✨ 자동 연출.</div>
+        <div class="hint" style="margin-top:10px">장면을 누르면 그 자리에서 문구·이미지·단서 자막·꾸미기(배경·모션·전환·효과)를 한 번에 정해요. 순서는 ▲▼ 버튼이나 가운데 장면 썸네일을 끌어서 바꿔요.<br>참고 예시는 📝 스토리보드 탭의 ‘예시 불러오기’, 상품 정보로 한 번에 만들려면 ✨ 자동 연출.</div>
+      </div>
+      <div class="card">
+        <h3><span class="num">3</span>단서 자막 <span class="badge">모든 장면 공통 · 선택</span></h3>
+        <input type="text" id="bDan" placeholder="예: 박스당 최저가격찬스 | NS기준, 50% 세일, 총5회">
+        <div class="hint" style="margin-top:6px"><code>|</code> 앞은 굵은 제목, 뒤는 작은 고지 문구예요. 장면마다 다르게 하려면 장면을 눌러 그 장면의 ‘단서 자막’ 칸에 쓰고, 그 장면만 빼려면 <code>없음</code>이라고 써요.</div>
       </div>
     </div>
 
     <div class="pane" id="pane-quick">
       <div class="card">
-        <h3><span class="num">1</span>상품 정보만 채우면 연출은 알아서 해요</h3>
+        <h3><span class="num">1</span>상품 정보 <span class="badge">채운 만큼만 장면이 생겨요</span></h3>
         <div class="field"><label>상품명</label><input type="text" id="fProduct" placeholder="예: 마데카 크림"></div>
         <div class="row2 tongOnly">
           <div class="field"><label>위 고정 띠 (머리) <span class="dim">비우면 상품명</span></label><input type="text" id="fTongHead" placeholder="예: 강화유리 용기"></div>
           <div class="field"><label>아래 고정 띠 (꼬리)</label><input type="text" id="fTongFoot" placeholder="예: 앱 주문 시 | 3천원 적립"></div>
         </div>
         <div class="field"><label>첫 카피 <span class="dim">(비우면 자동)</span></label><input type="text" id="fHook" placeholder="예: 봄바람 몰고 쇼핑혜택"></div>
-        <div class="field"><label>특징 · 포인트 <span class="dim">(한 줄에 하나, 체크 표시로 나와요)</span></label><textarea id="fPoints" rows="3" placeholder="조리과정 한눈에&#10;식기세척기 가능&#10;밀폐테스트 완료"></textarea></div>
-        <div class="field wideOnly"><label>판매 실적 <span class="dim">(선택)</span></label><input type="text" id="fRecord" placeholder="예: 100,000,000통"></div>
+        <div class="field"><label>특징 · 포인트 <span class="dim">(한 줄에 하나 · 큰 글자로 한 번씩 박아요)</span></label><textarea id="fPoints" rows="3" placeholder="조리과정 한눈에&#10;식기세척기 가능&#10;밀폐테스트 완료"></textarea></div>
         <div class="field"><label>구성 <span class="dim">(이름 · 이미지 · 수량)</span></label>
           <div id="fComps"></div>
           <div><button class="small" id="fAddComp">+ 구성 추가</button></div>
@@ -323,15 +344,23 @@ body.tong .wideOnly{display:none!important}
             <div class="field"><label>총 수량 <span class="dim">(비우면 구성 합계)</span></label><input type="text" id="fQty" placeholder="자동" inputmode="numeric"></div>
           </div>
           <div class="field"><label>가격 조건 <span class="dim">(선택)</span></label><input type="text" id="fPriceNote" placeholder="(모바일 10% 할인 시)"></div>
+          <div class="field"><label>가격 숫자 연출</label><select id="fPriceMotion"><option value="자동">자동 · 정가가 있으면 정가에서 내려가기</option><option value="굴리기">숫자 굴리기 (슬롯처럼 돌다 멈춤)</option><option value="내려가기">정가에서 판매가로 내려가기</option></select></div>
           <label class="tog" style="align-self:flex-start"><input type="checkbox" id="fPerScene" checked>'1팩당 약 ○원꼴' 장면 넣기</label>
           <div class="calc" id="fCalc"></div>
         </div>
-        <div class="field"><label>한정·마감 문구 <span class="dim">(비우면 자동)</span></label><input type="text" id="fUrgent" placeholder="예: 방송 끝나면 / *이 조건 불가능*"></div>
-        <div class="field wideOnly"><label>단서 자막 <span class="dim">(선택 · 화면 아래 단서자막 자리에 작게)</span></label><input type="text" id="fDan" placeholder="예: 박스당 NS최저가격찬스 | NS기준, 50% 세일, 총5회"></div>
-        <div class="hint">줄을 나누려면 <code>/</code>, 포인트 색은 <code>*별표*</code>로 감싸요. 단서 자막은 <code>|</code> 앞이 굵은 제목, 뒤가 작은 고지 문구예요.</div>
+        <details class="more"><summary>더 넣기 <span class="dim">판매 실적 · 한정 문구 · 단서 자막</span></summary>
+          <div class="field wideOnly"><label>판매 실적 <span class="dim">(선택)</span></label><input type="text" id="fRecord" placeholder="예: 100,000,000통"></div>
+          <div class="field"><label>한정·마감 문구 <span class="dim">(비우면 자동)</span></label><input type="text" id="fUrgent" placeholder="예: 방송 끝나면 / *이 조건 불가능*"></div>
+          <div class="field"><label>단서 자막 <span class="dim">(모든 장면 공통 · 직접 만들기의 단서 자막과 같은 칸)</span></label><input type="text" id="fDan" placeholder="예: 박스당 NS최저가격찬스 | NS기준, 50% 세일, 총5회"></div>
+        </details>
+        <div class="hint" style="margin-top:8px">줄을 나누려면 <code>/</code>, 포인트 색은 <code>*별표*</code>로 감싸요. 단서 자막은 <code>|</code> 앞이 굵은 제목, 뒤가 작은 고지 문구예요.</div>
       </div>
       <div class="card">
         <h3><span class="num">2</span>연출 만들기 <span class="badge" id="fmtBadge">하드필러</span></h3>
+        <div class="field wideOnly"><label>연출 방식</label>
+          <div class="seg full" id="recipeSeg"><button data-v="product" class="on">📦 상품 소개형</button><button data-v="typo">🔠 타이포 강조형</button></div>
+          <input type="hidden" id="fRecipe" value="product"><span class="hint" id="recipeHint"></span>
+        </div>
         <div class="styleNow" id="styleNow"></div>
         <div class="ctaRow">
           <button class="primary" id="dirBtn">✨ 자동 연출로 만들기</button>
@@ -339,7 +368,7 @@ body.tong .wideOnly{display:none!important}
         </div>
         <div class="ctaRow" style="margin-top:8px"><button class="dark" id="multiBtn" title="서로 다른 스타일로 4개를 한 번에 만들어 비교">🧪 여러 스타일로 한 번에 뽑기</button></div>
         <div id="variants"></div>
-        <div class="hint" style="margin-top:8px">만든 뒤에도 장면을 눌러 바로 고칠 수 있어요. 마음에 안 들면 위의 ↶ 되돌리기.</div>
+        <div class="hint" style="margin-top:8px">만든 뒤에는 🧱 직접 만들기 탭에서 장면마다 문구·꾸미기를 고칠 수 있어요. 마음에 안 들면 위의 ↶ 되돌리기.</div>
       </div>
       <div class="card aiBox">
         <h3><span class="spark">✦</span>AI 연출 <span class="badge">Claude · 선택</span></h3>
@@ -381,7 +410,9 @@ body.tong .wideOnly{display:none!important}
           <tr><td>자간·행간</td><td>첫 줄 <code>자간: -5 / 행간: 90</code> 전체 · 장면 옵션 <code>{자간: 10, 행간: 120}</code> (자간은 글자 크기의 %, 행간은 기본 100%)</td></tr>
           <tr><td>기타</td><td><code>스타일</code>(강조: 분리·반복·기울임·박스) · <code>강조박스</code> · <code>색: #F40013</code> · <code>폰트: 명조</code> · <code>위치: 좌</code></td></tr>
           <tr><td>첫 줄</td><td><code>형식: 하드필러 / 테마: NS 레드 / 길이: 20 / L바: 기본 / 느낌: 부드럽게</code></td></tr>
-          <tr><td>인서트</td><td><code>형식: 인서트 / 단서: 박스당 NS최저가격찬스 | NS기준, 50% 세일</code> · 효과 <code>글자패턴</code>(<code>패턴: SALE</code>) · <code>화살표하락</code> · <code>화살표상승</code> · <code>대각분할</code> · <code>원형스포트</code> · <code>종이질감</code> · <code>플래시</code></td></tr>
+          <tr><td>가격</td><td><code>{정가: 99,000원, 할인: 23%, 가격모션: 내려가기}</code> · 가격모션 <code>굴리기</code>(기본, 슬롯처럼 돌다 멈춤) · <code>내려가기</code>(정가에서 판매가로 내려옴)</td></tr>
+          <tr><td>단서</td><td>첫 줄 <code>단서: 박스당 최저가 | NS기준, 50% 세일</code> 모든 장면 · 장면 옵션 <code>{단서: "가격 기준 | NS 정상가 대비, 모바일 할인 별도"}</code> 그 장면만 (쉼표가 있으면 <code>"따옴표"</code>) · <code>{단서: 없음}</code> 그 장면은 빼기</td></tr>
+          <tr><td>타이포</td><td>효과 <code>글자패턴</code>(<code>패턴: SALE</code>) · <code>화살표하락</code> · <code>화살표상승</code> · <code>대각분할</code> · <code>원형스포트</code> · <code>종이질감</code> · <code>플래시</code> (예전 인서트 탭의 효과, 이제 모든 형식에서 써요)</td></tr>
           <tr><td>통강조</td><td><code>형식: 통강조 / 머리: 위 띠 문구 / 꼬리: 앱 주문 시 | 3천원 적립 / 틀: 카드</code> (<code>|</code>는 띠 안 줄바꿈) · 최대 8초, 장면 2개 정도</td></tr>
         </table>
       </div>
@@ -427,36 +458,43 @@ body.tong .wideOnly{display:none!important}
     <div class="dim">단축키 <span class="kbd">Space</span> 재생 · <span class="kbd">←</span> <span class="kbd">→</span> 장면 이동 · <span class="kbd">Ctrl+Z</span> 되돌리기 · <span class="kbd">Ctrl+S</span> 저장</div>
   </section>
 
-  <!-- 오른쪽: 디자인 · 꾸미기 · 테마 -->
+  <!-- 오른쪽: 모든 장면에 한 번에 적용되는 디자인 (장면 하나만 바꾸는 건 왼쪽 장면 편집 칸의 '꾸미기') -->
   <section class="col">
-    <div class="colHead"><b>디자인</b><span class="dim">스타일 · 테마 · 폰트 · 효과</span></div>
+    <div class="colHead"><b>전체 디자인</b><span class="dim">모든 장면에 한 번에</span></div>
     <div class="card">
-      <h3>전체 디자인</h3>
-      <div class="field"><label>스타일 <span class="dim">고르면 테마·폰트·모션·효과가 한 번에</span></label><input type="hidden" id="fTheme"><div class="dd" id="ddStyle"></div></div>
-      <div class="field"><label>테마</label><div class="dd" id="ddTheme"></div></div>
-      <div class="field"><label>키컬러로 톤 맞추기 <span class="dim">상품·브랜드 색 하나로</span></label>
-        <div class="keyRow"><input type="color" id="keyColor" value="#f40013" title="키컬러 직접 고르기"><div class="keyRow" id="keySw"></div></div>
+      <h3>스타일 · 테마</h3>
+      <div class="field"><label>스타일 <span class="dim">테마·폰트·모션·효과를 한 번에</span></label><input type="hidden" id="fTheme"><div class="dd" id="ddStyle"></div></div>
+      <div class="field"><label>테마 <span class="dim">배경과 색만</span></label><div class="dd" id="ddTheme"></div></div>
+      <details class="more" id="keyBox"><summary>🎨 키컬러로 톤 맞추기 <span class="dim">상품·브랜드 색 하나로</span></summary>
+        <div class="keyRow" style="margin-top:8px"><input type="color" id="keyColor" value="#f40013" title="키컬러 직접 고르기"><div class="keyRow" id="keySw"></div></div>
         <div class="ctaRow" style="margin-top:8px"><button class="small" id="keyFromImg">🎨 상품 이미지에서 색 뽑기</button><button class="small soft" id="keyApply">이 색으로 맞추기</button></div>
         <div class="toneTag" id="keyTone"></div>
-      </div>
+      </details>
+    </div>
+    <div class="card">
+      <h3>글자</h3>
       <div class="field"><label>폰트</label><div class="dd" id="ddFont"></div></div>
-      <div class="row2">
-        <div class="field"><label>모션 느낌</label><select id="feelSel"><option value="부드럽게">부드럽게</option><option value="보통">보통</option><option value="강하게">강하게</option></select></div>
-        <div class="field"><label>기본 모션</label><select id="motionSel"></select></div>
-      </div>
-      <div class="field wideOnly"><label>L바</label><select id="lbarSel"><option value="full">기본 L바</option><option value="bottom">하단바만</option><option value="none">없음</option></select></div>
-      <div class="field"><label>상품 이미지 크기 <span class="dim" id="imgKv">100%</span></label><input type="range" id="imgK" min="50" max="200" step="5" value="100"><span class="hint">모든 장면의 상품 이미지를 한 번에 키우거나 줄여요. 장면마다 따로 하려면 왼쪽 '선택한 장면 문구'의 이미지 크기를 쓰세요.</span></div>
       <div class="row2">
         <div class="field"><label>자간 <span class="dim" id="trackKv">0</span></label><input type="range" id="trackK" min="-10" max="30" step="1" value="0"></div>
         <div class="field"><label>행간 <span class="dim" id="leadKv">100%</span></label><input type="range" id="leadK" min="60" max="180" step="5" value="100"></div>
       </div>
-      <span class="hint" style="margin:-6px 0 10px;display:block">자간은 글자 사이(글자 크기의 %), 행간은 줄 사이 간격이에요. 장면마다 따로 하려면 아래 '선택한 장면 꾸미기'.</span>
-      <div class="field tongOnly"><label>틀 <span class="dim">통강조 화면 테두리</span></label><select id="frameSel"><option value="없음">없음</option><option value="카드">카드 (반투명 판)</option><option value="테두리">테두리 (이중선)</option><option value="네온">네온 (빛나는 선)</option><option value="코너">코너 (모서리 꺾쇠)</option></select></div>
-      <div class="field"><label>전체 효과 <span class="dim">모든 장면에 깔려요</span></label><div class="fxChips" id="fxGlobal"></div></div>
+      <span class="hint">자간은 글자 사이(글자 크기의 %), 행간은 줄 사이 간격이에요. 장면 하나만 바꾸려면 그 장면의 ‘꾸미기’에서.</span>
     </div>
-    <div class="card insp">
-      <h3>선택한 장면 꾸미기</h3>
-      <div id="insp"><div class="dim">장면 썸네일이나 타임라인을 누르면 여기서 그 장면의 배경·모션·전환·효과를 바꿀 수 있어요.</div></div>
+    <div class="card">
+      <h3>움직임 · 화면</h3>
+      <div class="row2">
+        <div class="field"><label>모션 느낌</label><select id="feelSel"><option value="부드럽게">부드럽게</option><option value="보통">보통</option><option value="강하게">강하게</option></select></div>
+        <div class="field"><label>기본 모션</label><select id="motionSel"></select></div>
+      </div>
+      <div class="row2">
+        <div class="field wideOnly"><label>L바</label><select id="lbarSel"><option value="full">기본 L바</option><option value="bottom">하단바만</option><option value="none">없음</option></select></div>
+        <div class="field tongOnly"><label>틀 <span class="dim">통강조 테두리</span></label><select id="frameSel"><option value="없음">없음</option><option value="카드">카드 (반투명 판)</option><option value="테두리">테두리 (이중선)</option><option value="네온">네온 (빛나는 선)</option><option value="코너">코너 (모서리 꺾쇠)</option></select></div>
+      </div>
+      <div class="field"><label>상품 이미지 크기 <span class="dim" id="imgKv">100%</span></label><input type="range" id="imgK" min="50" max="200" step="5" value="100"><span class="hint">모든 장면의 상품 이미지를 한 번에 키우거나 줄여요. 장면 하나만은 그 장면의 이미지 크기로.</span></div>
+    </div>
+    <div class="card">
+      <h3>전체 효과 <span class="badge">모든 장면에 깔려요</span></h3>
+      <div class="fxChips" id="fxGlobal"></div>
     </div>
   </section>
 </main>

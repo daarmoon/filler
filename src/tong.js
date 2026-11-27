@@ -261,9 +261,10 @@ const TONG_BLOCKS = {
     let pi = L.findIndex(l => /\d[\d,]*\s*원/.test(plain(l))); if (pi < 0) pi = L.findIndex(l => /\d/.test(l)); if (pi < 0) pi = 0;
     const pre = L.slice(0, pi), post = L.slice(pi + 1), raw = plain(L[pi] || ''), m = raw.match(/\d[\d,]*/);
     const before = m ? raw.slice(0, m.index).trim() : '', num = m ? m[0] : raw, after = m ? raw.slice(m.index + num.length).trim() : '';
-    const { shown, settle } = rollDigits(num, e.lt);
-    const sufK = .46; setFont(ctx, e.F, 300); const wN = ctx.measureText(num.replace(/\d/g, '0')).width; setFont(ctx, e.F, 300 * sufK); const wA = after ? ctx.measureText(after).width + 16 : 0;
-    const bigS = Math.min(320, 300 * (A.w * .95) / (wN + wA)), totW = (wN + wA) * bigS / 300;
+    const an = priceAnim(num, e), { shown, settle } = an;
+    const sufK = .46; setFont(ctx, e.F, 300); const cells = str => ctx.measureText(str.replace(/\d/g, '0')).width;
+    const wN = an.down ? Math.max(cells(num), cells(an.from)) : cells(num), wNow = an.down ? cells(shown) : wN; setFont(ctx, e.F, 300 * sufK); const wA = after ? ctx.measureText(after).width + 16 : 0;
+    const bigS = Math.min(320, 300 * (A.w * .95) / (wN + wA)), totW = (wNow + wA) * bigS / 300;
     const orig = e.opts.정가 ? plain(e.opts.정가).replace(/^(\D*)(\d{4,})(\D*)$/, (_, a, n, b) => a + Number(n).toLocaleString('ko-KR') + (b || '원')) : '';
     const preTxt = pre.join(' '), bubble = preTxt && plain(preTxt).length <= 2;
     const hPre = preTxt ? (bubble ? 190 : 140) : 0, hOrig = orig ? 110 : 0, hBefore = before ? 100 : 0, hNum = bigS * 1.12, hPost = post.length ? 110 : 0;
@@ -276,7 +277,7 @@ const TONG_BLOCKS = {
     if (orig) {
       const ot = /정가/.test(orig) ? orig : '정가 ' + orig, oy = y + 50;
       const r = drawText(ctx, ot, Object.assign(roleStyle(e, 'note', 64), { x: A.cx, y: oy, size: 64, motion: 'slide', t: e.lt, delay: .1, maxW: A.w * .8 }));
-      const sp = Ease.outCubic(prog(e.lt, settle - .25, .35));
+      const sp = Ease.outCubic(prog(e.lt, an.down ? an.start : settle - .25, .35));
       if (sp > 0) { ctx.save(); ctx.strokeStyle = e.P.em; ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(r.x - 10, oy + 3); ctx.lineTo(r.x - 10 + (r.w + 20) * sp, oy - 5); ctx.stroke(); ctx.restore(); }
       y += hOrig;
     }
@@ -286,9 +287,11 @@ const TONG_BLOCKS = {
     ctx.save(); const s2 = 1 + (punch > 0 ? (1 - Ease.outCubic(punch)) * .25 : 0); ctx.translate(A.cx, cy); ctx.scale(s2, s2); ctx.translate(-A.cx, -cy);
     ctx.globalAlpha = prog(e.lt, .35, .15); const st = roleStyle(e, 'main', bigS);
     setFont(ctx, e.F, bigS); let x = x0;
-    for (const ch of shown) { const cw = ctx.measureText(/\d| /.test(ch) ? '0' : ch).width; if (ch !== ' ') drawText(ctx, '*' + ch + '*', Object.assign({}, st, { x: x + cw / 2, y: cy, size: bigS, motion: 'none', label: '_d' })); x += cw; }
-    if (after) drawText(ctx, after, Object.assign({}, st, { x: x + 12, y: cy + bigS * (1 - sufK) * .36, size: bigS * sufK, align: 'left', motion: 'pop', t: e.lt, delay: settle - .1 }));
+    const hot = !an.down || e.lt >= settle;
+    for (const ch of shown) { const cw = ctx.measureText(/\d| /.test(ch) ? '0' : ch).width; if (ch !== ' ') drawText(ctx, hot ? '*' + ch + '*' : ch, Object.assign({}, st, { x: x + cw / 2, y: cy, size: bigS, motion: 'none', label: '_d' })); x += cw; }
+    if (after) drawText(ctx, after, Object.assign({}, st, { x: x + 12, y: cy + bigS * (1 - sufK) * .36, size: bigS * sufK, align: 'left', motion: 'pop', t: e.lt, delay: an.down ? an.start - .1 : settle - .1 }));
     reportBox(x0, cy - bigS * .6, totW, bigS * 1.2, raw); ctx.restore();
+    if (an.down) dropArrow(ctx, Math.max(A.x + 40, x0 - bigS * .2), cy - bigS * .75, bigS * .3, e.P.em, e.lt, an.start, settle);
     y += hNum;
     if (e.opts.할인) { // 스티커처럼 숫자 오른쪽 위에 붙는 할인 배지
       const dp = prog(e.lt, settle + .05, .45); if (dp > 0) {

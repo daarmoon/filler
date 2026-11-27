@@ -14,7 +14,7 @@ const proj = () => ({ fmt: S.fmt, head: S.head, foot: S.foot, dan: S.dan, imgK: 
 const tplFmt = t => t.fmt || fmtOfText(t.text);
 // 화면에 보이는 문구만 (줄 앞 (외곽)·(박스) 같은 꾸밈 표시와 *별표*를 뺌)
 const sceneText = (sc, sep = ' / ') => plain(sc.lines.map(l => lineTag(l).text).join(sep));
-function fmtOfText(text) { const m = String(text).match(/형식:\s*([^/\n]+)/); const v = m && m[1].trim(); return FORMATS[v] ? v : '하드필러'; }
+function fmtOfText(text) { const m = String(text).match(/형식:\s*([^/\n]+)/); return normFmt(m && m[1]); }
 function init() {
   for (const [k, v] of Object.entries(MOTIONS)) $('motionSel').add(new Option(k, v));
   buildTplSel();
@@ -29,7 +29,9 @@ function init() {
   // 처음엔 예시 없이 빈 화면에서 시작. 예전 버전이 깔아 둔 예시(손대지 않은 것)는 지움
   const isTpl = t => !t || TEMPLATES.some(x => x.text.trim() === String(t).trim());
   if (saved && saved.texts) for (const [k, v] of Object.entries(saved.texts)) if (!isTpl(v)) S.texts[k] = v;
-  const fmt0 = saved && FORMATS[saved.fmt] ? saved.fmt : '하드필러';
+  // v8: 인서트 탭이 없어져서 예전 인서트 탭에 쓰던 글은 하드필러 탭으로 (하드필러 탭이 비어 있을 때)
+  if (S.texts.인서트) { if (!S.texts.하드필러) S.texts.하드필러 = S.texts.인서트.replace(/형식:\s*인서트/, '형식: 하드필러'); delete S.texts.인서트; }
+  const fmt0 = saved ? normFmt(saved.fmt) : '하드필러';
   $('sb').value = S.texts[fmt0] || (saved && !isTpl(saved.text) && fmtOfText(saved.text) === fmt0 ? saved.text : blankText(fmt0));
   const oldDemo = f => f && f.product === '마데카 크림' && f.price === '76090' && (f.comps || [])[0] && f.comps[0].name === '크림 50ml';
   loadForm(saved && saved.form && !oldDemo(saved.form) ? saved.form : {});
@@ -37,7 +39,7 @@ function init() {
   bindUI(); bindQuick(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('build');
   $('appVer').textContent = 'v' + APP_VERSION + (APP ? ' · 윈도우 앱' : '');
   if (APP) { document.body.classList.add('app'); APP.info().then(i => { APP_INFO = i; }).catch(() => { }); }
-  loadFonts().then(() => { S.dirty = true; lastWarnKey = ''; buildDesignDDs(); thumbsSoon(); });
+  loadFonts().then(() => { S.dirty = true; lastWarnKey = null; buildDesignDDs(); thumbsSoon(); });
   restoreAssets();
   // 예상 못 한 오류는 조용히 넘어가지 않고 알려 줌
   window.addEventListener('error', e => { if (e.message && !/ResizeObserver/.test(e.message)) toast('문제가 생겼어요: ' + e.message); });
@@ -78,7 +80,7 @@ function fontsSoon() { clearTimeout(fontTimer); fontTimer = setTimeout(() => loa
 // 스토리보드 글만으로 렌더용 프로젝트를 만듦 (여러 버전 미리보기·일괄 내보내기용)
 function projFromText(text) {
   const r = parseStoryboard(text); const st = r.settings;
-  const fmt = FORMATS[st.형식] ? st.형식 : '하드필러';
+  const fmt = normFmt(st.형식);
   const p = { scenes: r.scenes, theme: themeFromName(st.테마) || 'ns', font: fontFromName(st.폰트) || null, motion: MOTIONS[st.모션] || 'pop',
     lbar: LBAR_NAMES[st.L바] || FORMATS[fmt].lbar, feel: FEEL_NAMES.includes(st.느낌) ? st.느낌 : '보통', key: /^#[0-9a-f]{6}$/i.test(st.키컬러 || '') ? st.키컬러 : S.key,
     fx: parseFxList(st.효과), assets: S.assets, bgm: S.bgm, fmt, head: st.머리 || '', foot: st.꼬리 || '', dan: st.단서 || '', imgK: parseFloat(st.이미지크기) || 100, track: parseFloat(st.자간) || 0, lead: parseFloat(st.행간) || 100, frame: TONG_FRAMES.includes(st.틀) ? st.틀 : '없음' };
@@ -144,9 +146,9 @@ const themeItems = () => Object.entries(THEMES).map(([id, th]) => ({ v: id, labe
 function buildDesignDDs() {
   setStage('wide');
   makeDD('ddStyle', { grid: true, onChange: pickStyle }).setItems([
-    { v: '', label: '자동', sub: '상품에 맞게 골라요', icon: '✨' }, { v: '__img', label: '상품 이미지 색', sub: '사진 색으로 톤 맞춤', icon: '🎨' },
+    { v: '', label: '자동', sub: '상품명·사진 색에 맞춰', icon: '✨' }, { v: 'theme', label: '지금 테마 그대로', sub: '내가 고른 테마·폰트', icon: '🎯' },
     ...Object.entries(STYLES).map(([id, st]) => ({ v: 'style:' + id, label: st.name, draw: c => drawStyleThumb(c, st.theme, st.font) }))]);
-  makeDD('ddTheme', { grid: true, onChange: v => { S.theme = v; writeSettings(); toast(`테마를 '${THEMES[v].name}'(으)로 바꿨어요`); } }).setItems(themeItems());
+  makeDD('ddTheme', { grid: true, onChange: v => { S.theme = v; $('fTheme').value = 'theme'; persist(); writeSettings(); toast(`테마를 '${THEMES[v].name}'(으)로 바꿨어요`); } }).setItems(themeItems());
   makeDD('ddFont', { onChange: v => { S.font = v; writeSettings(); } }).setItems([
     { v: '', label: '테마 기본 폰트', font: { family: "'Noto Sans KR', sans-serif", weight: 700 }, sample: '테마에 맞춰 자동' },
     ...Object.entries(FONTS).map(([id, f]) => ({ v: id, label: f.name, font: f }))]);
@@ -161,11 +163,25 @@ function pickStyle(v) {
     S.theme = st.theme; S.font = st.font; S.feel = st.feel; S.fx = st.fx.slice(); S.motion = MOTIONS[st.motions[0]] || 'pop';
     if (S.fmt === '통강조') S.frame = TONG_STYLE_FRAME[id] || S.frame;
     writeSettings(); toast(`'${st.name}' 스타일을 입혔어요 · 장면 구성까지 바꾸려면 ✨ 자동 연출`, true);
-  } else if (v === '__img') $('keyFromImg').click();
+  } else if (!v) applyAutoStyle();
   syncControls();
 }
+// '자동': 상품명·포인트에 분위기 단어가 있으면 그 테마, 없으면 올린 상품 사진의 색(키컬러), 둘 다 없으면 NS 레드
+function autoTheme(f) {
+  f = f || readForm();
+  const kw = guessThemeKw(f); if (kw) return { theme: kw, why: '상품명' };
+  const img = ((f.comps || []).find(c => c.img && S.assets[c.img]) || {}).img || Object.keys(S.assets).find(n => n !== '로고');
+  if (img && S.assets[img]) { const cols = extractColors(S.assets[img].img, 3); if (cols[0]) return { theme: 'key', key: cols[0], why: `'${img}' 사진 색` }; }
+  return { theme: null, why: '기본' }; // 자동 연출은 연출 방식에 맞는 기본 테마를 씀
+}
+function applyAutoStyle() {
+  const a = autoTheme(); S.fx = []; S.motion = 'pop';
+  if (a.theme === 'key') { applyKey(a.key, true); $('fTheme').value = ''; persist(); }
+  else { S.theme = a.theme || 'ns'; S.font = ''; S.feel = '보통'; writeSettings(); }
+  toast(`자동: ${a.why}에 맞춰 '${THEMES[S.theme].name}'${a.theme === 'key' ? ` (${S.key})` : ''} 테마로 맞췄어요`, true);
+}
 function updateStyleNow() {
-  const v = $('fTheme').value || '', name = v.startsWith('style:') && STYLES[v.slice(6)] ? STYLES[v.slice(6)].name : v === '__img' ? '상품 이미지 색' : '자동 (상품에 맞게)';
+  const v = $('fTheme').value || '', name = v.startsWith('style:') && STYLES[v.slice(6)] ? STYLES[v.slice(6)].name : v === 'theme' ? `지금 테마 그대로 (${(THEMES[S.theme] || THEMES.ns).name})` : '자동 (상품명·사진 색에 맞춰)';
   $('styleNow').innerHTML = `스타일: <b>${name}</b> <span class="dim">· 오른쪽 '전체 디자인'에서 바꿔요</span>`;
 }
 function buildFxChips() {
@@ -193,7 +209,7 @@ function toast(msg, withUndo) {
 }
 
 // ---------- 간편 입력 ----------
-const FORM_IDS = { tongHead: 'fTongHead', tongFoot: 'fTongFoot', dan: 'fDan', product: 'fProduct', hook: 'fHook', record: 'fRecord', listPrice: 'fListPrice', rate: 'fRate', price: 'fPrice', pricePre: 'fPricePre', unit: 'fUnit', qty: 'fQty', priceNote: 'fPriceNote', urgent: 'fUrgent', theme: 'fTheme' };
+const FORM_IDS = { tongHead: 'fTongHead', tongFoot: 'fTongFoot', dan: 'fDan', product: 'fProduct', hook: 'fHook', record: 'fRecord', listPrice: 'fListPrice', rate: 'fRate', price: 'fPrice', pricePre: 'fPricePre', unit: 'fUnit', qty: 'fQty', priceNote: 'fPriceNote', urgent: 'fUrgent', theme: 'fTheme', recipe: 'fRecipe', priceMotion: 'fPriceMotion' };
 let formComps = [{ name: '', img: '', qty: '' }];
 function readForm() {
   const f = {}; for (const [k, id] of Object.entries(FORM_IDS)) f[k] = $(id).value.trim();
@@ -206,7 +222,13 @@ function loadForm(f) {
   for (const [k, id] of Object.entries(FORM_IDS)) if (f[k] != null) $(id).value = f[k];
   $('fPoints').value = (f.points || []).join('\n'); if (f.perScene === false) $('fPerScene').checked = false;
   if (f.comps && f.comps.length) formComps = f.comps.map(c => Object.assign({ name: '', img: '', qty: '' }, c));
+  if (f.theme === '__img') $('fTheme').value = ''; // v7의 '상품 이미지 색'은 v8에서 '자동'에 합쳐짐
+  if (!['product', 'typo'].includes($('fRecipe').value)) $('fRecipe').value = 'product';
+  if (!$('fPriceMotion').value) $('fPriceMotion').value = '자동';
+  syncRecipe();
 }
+const RECIPE_HINT = { product: '훅 → 상품 → 포인트 → 구성 → 가격 → 한정 순서로 상품을 차근차근 소개해요. (하드필러식)', typo: '큰 글자를 1~2초마다 바꿔 치며 할인율·최저가를 강하게 박아요. (예전 인서트 탭 방식)' };
+function syncRecipe() { const v = $('fRecipe').value || 'product'; [...$('recipeSeg').children].forEach(b => b.classList.toggle('on', b.dataset.v === v)); $('recipeHint').textContent = RECIPE_HINT[v]; }
 function renderComps() {
   const box = $('fComps'); box.innerHTML = ''; const imgs = Object.keys(S.assets);
   formComps.forEach((c, i) => {
@@ -233,16 +255,13 @@ function formData() {
   const f = readForm();
   Object.assign(f, { fmt: S.fmt, dur: S.dur, feel: S.feel, logo: S.assets['로고'] ? '로고' : '' });
   if (String(f.theme).startsWith('style:')) { f.style = f.theme.slice(6); f.theme = ''; }
-  // 이미지 색에 맞추기 / 키컬러 테마: 키컬러로 톤(느낌·폰트)까지 맞춤
-  if (f.theme === '__img') {
-    const img = (f.comps.find(c => c.img && S.assets[c.img]) || {}).img || Object.keys(S.assets)[0];
-    if (img) { const cols = extractColors(S.assets[img].img, 3); if (cols[0]) S.key = cols[0]; }
-    f.theme = 'key';
-  }
+  // 자동: 상품명 분위기 → 상품 사진 색 → 기본 순서로 / 지금 테마 그대로: 오른쪽에서 고른 테마·폰트
+  else if (!f.theme || f.theme === '__img') { const a = autoTheme(f); if (a.theme === 'key') { S.key = a.key; setKeyColor(S.key); } f.theme = a.theme || ''; }
+  else if (f.theme === 'theme') { f.theme = S.theme; f.font = S.font || ''; }
   if (f.theme === 'key') { const tone = toneFromColor(S.key); f.key = S.key; f.feel = tone.feel; f.font = tone.font; showTone(); }
   return f;
 }
-const directFor = (d, seed) => (d.fmt === '통강조' ? directTong : d.fmt === '인서트' ? directInsert : directStoryboard)(d, seed);
+const directFor = (d, seed) => (d.fmt === '통강조' ? directTong : d.recipe === 'typo' ? directInsert : directStoryboard)(d, seed);
 function runDirector(newSeed) {
   const f = formData();
   if (!f.product && !f.price && !f.listPrice && !f.comps.length) { toast('상품명이나 가격을 먼저 넣어 주세요'); $('fProduct').focus(); return; }
@@ -273,7 +292,7 @@ function makeVariants() {
   const ids = Object.keys(STYLES); const cur = String($('fTheme').value).startsWith('style:') ? $('fTheme').value.slice(6) : null;
   const pickN = []; if (cur) pickN.push(cur);
   const pool = ids.filter(x => x !== cur).sort(() => Math.random() - .5);
-  if (S.fmt === '인서트') pool.sort((a, b) => (STYLES[b].insert ? 1 : 0) - (STYLES[a].insert ? 1 : 0));
+  if (base.recipe === 'typo' && S.fmt !== '통강조') pool.sort((a, b) => (STYLES[b].insert ? 1 : 0) - (STYLES[a].insert ? 1 : 0));
   while (pickN.length < 4) pickN.push(pool.shift());
   VARS = pickN.map(id => { const d = Object.assign({}, base, { style: id, theme: '' }); const seed = 1 + Math.floor(Math.random() * 900); return { id, name: STYLES[id].name, text: directFor(d, seed), pick: true }; });
   renderVariants();
@@ -335,8 +354,12 @@ function bindQuick() {
   [...Object.values(FORM_IDS), 'fPoints'].forEach(id => $(id).addEventListener('input', persist));
   [...Object.values(FORM_IDS), 'fUnit'].forEach(id => $(id).addEventListener('input', updateCalc));
   $('fPerScene').onchange = persist; updateCalc();
-  // 단서 자막은 바로 화면에 반영 (스토리보드 첫 줄 '단서:')
-  $('fDan').addEventListener('change', () => { S.dan = $('fDan').value.trim(); writeSettings(); });
+  // 단서 자막은 쓰는 대로 화면에 반영 (스토리보드 첫 줄 '단서:'). 자동 연출 칸과 직접 만들기 칸은 같은 값
+  let danT = 0;
+  ['fDan', 'bDan'].forEach(id => { const el = $(id); const apply = () => { clearTimeout(danT); const v = el.value.trim(); if (v === S.dan) return; S.dan = v; writeSettings(); };
+    el.addEventListener('input', () => { clearTimeout(danT); danT = setTimeout(apply, 400); }); el.addEventListener('change', apply); });
+  $('recipeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('fRecipe').value = b.dataset.v; syncRecipe(); persist(); };
+  $('fPriceMotion').onchange = persist;
   $('dirBtn').onclick = () => runDirector(false);
   $('shuffleBtn').onclick = () => runDirector(true);
   $('aiBtn').onclick = runAI;
@@ -350,7 +373,7 @@ function parseSoon() { clearTimeout(parseTimer); parseTimer = setTimeout(parseNo
 function parseNow() {
   const r = parseStoryboard($('sb').value);
   const st = r.settings;
-  S.fmt = st.형식 && FORMATS[st.형식] ? st.형식 : '하드필러';
+  S.fmt = normFmt(st.형식);
   S.head = st.머리 || ''; S.foot = st.꼬리 || ''; S.frame = TONG_FRAMES.includes(st.틀) ? st.틀 : '없음';
   S.dan = st.단서 || ''; S.imgK = clamp(parseFloat(st.이미지크기) || 100, 30, 300);
   S.track = clamp(parseFloat(st.자간) || 0, -20, 60); S.lead = clamp(parseFloat(st.행간) || 100, 50, 220);
@@ -390,7 +413,7 @@ function syncControls() {
   $('durRange').value = S.dur; $('durNum').value = S.dur;
   $('trackK').value = S.track; $('trackKv').textContent = S.track; $('leadK').value = S.lead; $('leadKv').textContent = S.lead + '%';
   if (palFmt !== (tong ? 'tong' : 'wide')) buildPalette();
-  if (document.activeElement !== $('fDan')) $('fDan').value = S.dan || '';
+  for (const id of ['fDan', 'bDan']) if (document.activeElement !== $(id)) $(id).value = S.dan || '';
   $('imgK').value = S.imgK; $('imgKv').textContent = S.imgK + '%';
   $('fmtBadge').textContent = S.fmt; $('lbarLbl').textContent = tong ? 'L바에 넣어 보기' : 'L바 보기';
   $('thumbs').classList.toggle('tall', tong); updateStyleNow();
@@ -409,7 +432,8 @@ function switchFormat(v) {
 function writeSettings() {
   const s = { 형식: S.fmt, 테마: THEMES[S.theme].name, 길이: String(S.dur) };
   if (S.fmt === '통강조') { if (S.head) s.머리 = S.head; if (S.foot) s.꼬리 = S.foot; if (S.frame && S.frame !== '없음') s.틀 = S.frame; }
-  else { s.L바 = LBAR_LABEL[S.lbar]; if (S.dan) s.단서 = S.dan; }
+  else s.L바 = LBAR_LABEL[S.lbar];
+  if (S.dan) s.단서 = S.dan;
   if (S.imgK !== 100) s.이미지크기 = String(S.imgK);
   if (S.track) s.자간 = String(S.track);
   if (S.lead !== 100) s.행간 = String(S.lead);
@@ -463,52 +487,122 @@ function seekFromEvent(ev) {
   S.dirty = true; if (S.playing) restartAudio();
 }
 
-// ---------- 장면 편집 패널 ----------
+// ---------- 장면 편집 칸 (직접 만들기: 문구 · 이미지 · 단서 자막 · 꾸미기를 한 곳에서) ----------
+// 첫 항목(auto)은 '정하지 않음'이라 고르면 그 옵션을 지움
 function opt(sel, values, cur, auto = '자동') {
-  return `<select data-k="${sel}">` + [auto, ...values].map(v => `<option ${v === (cur || auto) ? 'selected' : ''}>${v}</option>`).join('') + '</select>';
+  return `<select data-k="${sel}" data-auto="${auto}">` + [auto, ...values].map(v => `<option ${v === (cur || auto) ? 'selected' : ''}>${v}</option>`).join('') + '</select>';
 }
-function bindOpts(root, sc) {
-  root.querySelectorAll('[data-k]').forEach(el => el.onchange = () => {
-    const k = el.dataset.k; let v = el.value.trim();
-    if (['자동', '기본', '없음'].includes(v) && !(k === '소품' && v === '없음')) v = '';
-    if (k === '이미지' && v === '없음') v = '';
-    if (v) sc.opts[k] = v; else delete sc.opts[k];
-    writeScene(S.sel);
+const curScene = () => S.scenes[S.sel];
+function setOpt(k, v) { const c = curScene(); if (!c) return; if (v) c.opts[k] = v; else delete c.opts[k]; writeScene(S.sel); }
+// 장면 데이터는 고칠 때마다 새로 만들어지므로, 항상 '지금 선택된 장면'에 씀
+function bindOpts(root) {
+  root.querySelectorAll('[data-k]').forEach(el => {
+    const k = el.dataset.k, val = () => { let v = el.value.trim(); if (el.dataset.auto !== undefined && v === el.dataset.auto) v = ''; return v; };
+    if (el.tagName === 'INPUT' && el.type === 'text') { // 글자 칸은 쓰는 대로 반영 (커서는 그대로)
+      let tm = 0; el.oninput = () => { clearTimeout(tm); tm = setTimeout(() => setOpt(k, val()), 350); };
+      el.onchange = () => { clearTimeout(tm); const c = curScene(); if (c && (c.opts[k] || '') !== val()) setOpt(k, val()); };
+    } else el.onchange = () => setOpt(k, val());
   });
 }
-// 왼쪽: 선택한 장면의 문구·종류·길이·이미지·숫자
+// 문구 칸 위 도구: *강조* · 줄 꾸밈 (작게)(크게)(박스)… · 글자|분리
+function lineTool(ta, d) {
+  const v = ta.value, s0 = ta.selectionStart, s1 = ta.selectionEnd;
+  if (d.tool === 'em' && s1 > s0 && !v.slice(s0, s1).includes('\n')) {
+    const sel = v.slice(s0, s1), w = /^\*.*\*$/.test(sel) ? sel.slice(1, -1) : '*' + sel.replace(/\*/g, '') + '*';
+    ta.value = v.slice(0, s0) + w + v.slice(s1); ta.setSelectionRange(s0, s0 + w.length); return;
+  }
+  const ls = v.lastIndexOf('\n', s0 - 1) + 1, le0 = v.indexOf('\n', s0), le = le0 < 0 ? v.length : le0;
+  let line = v.slice(ls, le); const lt = lineTag(line), pre = line.slice(0, line.length - lt.text.length), body = lt.text;
+  if (d.tool === 'em') line = pre + (/^\*[^*]*\*$/.test(body.trim()) ? body.replace(/\*/g, '') : body.trim() ? '*' + body.replace(/\*/g, '').trim() + '*' : '**');
+  else if (d.tool === 'split') line = pre + (body.includes('|') ? body.replace(/\|/g, '') : [...body.replace(/[*\s]/g, '')].join('|'));
+  else if (d.tag) line = (lt.tag === d.tag ? '' : `(${d.tag})`) + body;
+  ta.value = v.slice(0, ls) + line + v.slice(le); const pos = ls + line.length - (line.endsWith('**') && !body.trim() ? 1 : 0); ta.setSelectionRange(pos, pos);
+}
+const TYPO_TAGS = [['작게', '작은 머리 줄'], ['크게', '더 크게'], ['박스', '색 상자 안 글자'], ['외곽', '속 빈 글자'], ['테이프', '기울어진 띠'], ['입체', '긴 그림자'], ['자간', '넓은 자간']];
+const SC_DESIGN_KEY = 'hfm.design';
 function buildSceneText() {
   const card = $('sceneCard'), box = $('sceneText'), sc = S.scenes[S.sel];
   if (!sc) { card.hidden = true; box.innerHTML = ''; box.dataset.i = ''; return; }
-  card.hidden = false; $('scBadge').textContent = `${S.sel + 1}번 · ${BLOCK_LABEL[sc.type]}`;
-  // 문구를 쓰는 중이면 칸을 다시 만들지 않음 (커서가 튀지 않게)
-  if (box.dataset.i === String(S.sel) && document.activeElement && document.activeElement.id === 'iLines' && box.contains(document.activeElement)) return;
-  box.dataset.i = String(S.sel);
-  const b = BLOCKS[sc.type], o = sc.opts, imgs = Object.keys(S.assets), hasImg = !!o.이미지 || sc.lines.some(l => l.includes('@'));
+  card.hidden = false;
+  // 글자 칸에 쓰는 중이면 칸을 다시 만들지 않음 (커서가 튀지 않게)
+  const ae = document.activeElement;
+  if (box.dataset.i === String(S.sel) && box.dataset.t === sc.type && ae && box.contains(ae) && ae.matches('textarea, input[type=text]')) return;
+  const keepOpen = box.querySelector('#iDesign'); let open = keepOpen ? keepOpen.open : null;
+  if (open === null) { try { open = localStorage.getItem(SC_DESIGN_KEY) !== '0'; } catch (_) { open = true; } }
+  box.dataset.i = String(S.sel); box.dataset.t = sc.type;
+  const b = BLOCKS[sc.type], o = sc.opts, tong = S.fmt === '통강조', imgs = Object.keys(S.assets), hasImg = !!o.이미지 || sc.lines.some(l => l.includes('@'));
+  const esc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+  const tools = `<button type="button" class="em" data-tool="em" title="고른 글자(없으면 지금 줄)를 포인트 색으로">✦ *강조*</button>`
+    + (sc.type === 'typo' ? TYPO_TAGS.map(([t, d]) => `<button type="button" data-tag="${t}" title="지금 줄: ${d} (한 번 더 누르면 해제)">(${t})</button>`).join('') : '')
+    + (sc.type === 'impact' ? `<button type="button" data-tool="split" title="지금 줄을 한 글자씩 나눠서 크게">글자|분리</button>` : '');
+  const fontNames = Object.values(FONTS).map(f => f.name.split(' ')[0]), curFont = o.폰트 && fontFromName(o.폰트) ? FONTS[fontFromName(o.폰트)].name.split(' ')[0] : '';
+  const typeOpt = sc.type === 'impact' ? `<div class="field"><label>강조 방식</label>${opt('스타일', ['분리', '반복', '기울임', '박스'], o.스타일)}</div>`
+    : sc.type === 'typo' ? `<div class="field"><label>타이포 방식</label>${opt('스타일', ['쌓기', '교체'], o.스타일, '쌓기')}</div>`
+    : sc.type === 'product' && !tong ? `<div class="field"><label>이미지 위치</label>${opt('위치', ['좌'], o.위치, '우')}</div>` : '';
   box.innerHTML = `
     <div class="row2">
       <div class="field"><label>장면 종류</label><select id="iType">${Object.entries(BLOCKS).filter(([k]) => k !== 'benefits' || k === sc.type).map(([k, v]) => `<option value="${k}" ${k === sc.type ? 'selected' : ''}>${v.name}</option>`).join('')}</select></div>
-      <div class="field"><label>길이 (초) <span class="dim">비우면 자동</span></label><input type="number" step="0.1" min="0.5" data-k="길이" value="${o.길이 || ''}" placeholder="${sc.dur.toFixed(1)}"></div>
+      <div class="field"><label>길이 (초) <span class="dim">비우면 자동</span></label><input type="number" step="0.1" min="0.5" data-k="길이" value="${esc(o.길이)}" placeholder="${sc.dur.toFixed(1)}"></div>
     </div>
-    <div class="field"><label>문구 <span class="dim">한 줄 = 화면의 한 줄 · *강조*</span></label><textarea id="iLines" placeholder="${(LINE_GUIDE[sc.type] || '문구를 써 주세요').replace(/"/g, '&quot;')}">${sc.lines.join('\n').replace(/</g, '&lt;')}</textarea><span class="hint">${b.help}</span></div>
+    <div class="field"><label>문구 <span class="dim">한 줄 = 화면의 한 줄</span></label>
+      <div class="lineTools" id="iTools">${tools}</div>
+      <textarea id="iLines" placeholder="${esc(LINE_GUIDE[sc.type] || '문구를 써 주세요')}">${esc(sc.lines.join('\n'))}</textarea><span class="hint">${b.help}</span></div>
     <div class="row2">
       <div class="field"><label>이미지</label>${opt('이미지', imgs, o.이미지, '없음')}</div>
       ${hasImg ? `<div class="field"><label>이미지 크기 <span class="dim" id="iKv">${o.크기 || 100}%</span></label><input type="range" id="iK" min="40" max="220" step="5" value="${parseFloat(o.크기) || 100}"></div>` : ''}
-      ${sc.type === 'price' ? `<div class="field"><label>정가 <span class="dim">취소선</span></label><input type="text" data-k="정가" value="${o.정가 || ''}" placeholder="예: 99,000원"></div><div class="field"><label>할인 <span class="dim">배지</span></label><input type="text" data-k="할인" value="${o.할인 || ''}" placeholder="예: 23%"></div>` : ''}
     </div>
-    <div class="inspActs"><button class="small" id="iUp">▲ 앞으로</button><button class="small" id="iDown">▼ 뒤로</button><button class="small" id="iDup">복제</button><button class="small" id="iDel">삭제</button><button class="small ghost" id="iClose">닫기</button></div>`;
-  $('iType').onchange = e => { sc.type = e.target.value; sc.label = BLOCK_LABEL[sc.type]; writeScene(S.sel); };
-  // 쓰는 대로 바로 미리보기에 반영 (장면 데이터는 매번 새로 만들어지므로 항상 지금 선택된 장면에 씀)
+    ${sc.type === 'price' ? `<div class="grid3">
+      <div class="field"><label>정가 <span class="dim">취소선</span></label><input type="text" data-k="정가" value="${esc(o.정가)}" placeholder="99,000원"></div>
+      <div class="field"><label>할인 <span class="dim">배지</span></label><input type="text" data-k="할인" value="${esc(o.할인)}" placeholder="23%"></div>
+      <div class="field"><label>숫자 연출</label><select data-k="가격모션" data-auto="굴리기"><option value="굴리기">굴리기</option><option value="내려가기" ${o.가격모션 === '내려가기' ? 'selected' : ''}>정가→내려가기</option></select></div>
+    </div>` : ''}
+    <div class="field"><label>단서 자막 <span class="dim">이 장면만 · 비우면 공통 · 없음 = 빼기</span></label><input type="text" data-k="단서" value="${esc(o.단서)}" placeholder="${esc(S.dan ? '공통: ' + S.dan : '예: 가격 기준 | NS 정상가 대비, 모바일 할인 별도')}"></div>
+    <details class="scDesign" id="iDesign" ${open ? 'open' : ''}><summary>🎨 꾸미기 <span class="dim">배경 · 모션 · 전환 · 효과 (이 장면만)</span></summary>
+      <div class="grid3">
+        <div class="field"><label>배경</label>${opt('배경', ['1', '2', '3'], o.배경)}</div>
+        <div class="field"><label>모션</label>${opt('모션', Object.keys(MOTIONS), o.모션, '기본')}</div>
+        <div class="field"><label>다음 전환</label>${opt('전환', TRANSITIONS.slice(1), o.전환)}</div>
+        <div class="field"><label>소품</label>${opt('소품', PROPS_LIST.filter(x => !(tong && x === 'TV')), o.소품, '기본')}</div>
+        <div class="field"><label>폰트</label>${opt('폰트', fontNames, curFont, '전체')}</div>
+        ${typeOpt}
+        <div class="field"><label>강조 색</label><input type="text" data-k="색" value="${esc(o.색)}" placeholder="#ff0000"></div>
+        <div class="field"><label>강조 박스</label><select data-k="강조박스" data-auto="끔"><option>끔</option><option ${o.강조박스 ? 'selected' : ''} value="켬">켬</option></select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>자간 <span class="dim" id="iTrv"></span></label><input type="range" id="iTr" min="-10" max="30" step="1"></div>
+        <div class="field"><label>행간 <span class="dim" id="iLdv"></span></label><input type="range" id="iLd" min="60" max="180" step="5"></div>
+      </div>
+      <div class="field" style="margin-bottom:0"><label>이 장면 효과 <span class="dim">(여러 개 가능)</span></label><div class="fxChips" id="iFx">${['없음', ...EFFECT_NAMES].map(n => `<button data-n="${n}" class="${(o.효과 || '').split('+').includes(n) ? 'on' : ''}">${n === '없음' ? '전체 효과 끄기' : n}</button>`).join('')}</div></div>
+    </details>
+    <div class="inspActs"><button class="small" id="iUp">▲ 앞으로</button><button class="small" id="iDown">▼ 뒤로</button><button class="small" id="iDup">복제</button><button class="small" id="iDel">삭제</button><button class="small ghost" id="iClose">접기</button></div>`;
+  $('iType').onchange = e => { const c = curScene(); if (!c) return; c.type = e.target.value; c.label = BLOCK_LABEL[c.type]; writeScene(S.sel); };
+  // 쓰는 대로 바로 미리보기에 반영
   const ta = $('iLines'); let typeT = 0;
-  const commit = () => { clearTimeout(typeT); const cur = S.scenes[S.sel]; if (!cur) return; const nl = ta.value.split('\n').map(s => s.trim()).filter(Boolean); if (nl.join('\n') === cur.lines.join('\n')) return; cur.lines = nl; writeScene(S.sel); };
+  const commit = () => { clearTimeout(typeT); const cur = curScene(); if (!cur) return; const nl = ta.value.split('\n').map(s => s.trim()).filter(Boolean); if (nl.join('\n') === cur.lines.join('\n')) return; cur.lines = nl; writeScene(S.sel); };
   ta.onfocus = () => { S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false; };
   ta.oninput = () => { clearTimeout(typeT); typeT = setTimeout(commit, 220); };
   ta.onchange = commit; ta.onblur = commit;
-  bindOpts(box, sc);
-  if ($('iK')) { $('iK').oninput = e => { const v = +e.target.value; $('iKv').textContent = v + '%'; if (v === 100) delete sc.opts.크기; else sc.opts.크기 = String(v); S.dirty = true; }; $('iK').onchange = () => writeScene(S.sel); }
+  $('iTools').onmousedown = e => { const t = e.target.closest('button'); if (!t) return; e.preventDefault(); if (document.activeElement !== ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } lineTool(ta, t.dataset); ta.dispatchEvent(new Event('input')); };
+  bindOpts(box);
+  $('iDesign').ontoggle = () => { try { localStorage.setItem(SC_DESIGN_KEY, $('iDesign').open ? '1' : '0'); } catch (_) { } };
+  if ($('iK')) { $('iK').oninput = e => { const c = curScene(); if (!c) return; const v = +e.target.value; $('iKv').textContent = v + '%'; if (v === 100) delete c.opts.크기; else c.opts.크기 = String(v); S.dirty = true; }; $('iK').onchange = () => writeScene(S.sel); }
+  // 자간·행간: 장면 값이 없으면 전체 값을 따름 (전체 값과 같게 돌려놓으면 장면 값은 지움)
+  const spc = (id, key, glob, unit) => {
+    const el = $(id), lab = $(id + 'v');
+    const show = () => { const c = curScene(); const own = c && c.opts[key] !== undefined; lab.textContent = (own ? c.opts[key] : glob()) + unit + (own ? '' : ' (전체)'); };
+    el.value = o[key] !== undefined ? o[key] : glob(); show();
+    el.oninput = () => { const c = curScene(); if (!c) return; const v = +el.value; if (v === glob()) delete c.opts[key]; else c.opts[key] = String(v); show(); S.dirty = true; };
+    el.onchange = () => writeScene(S.sel);
+  };
+  spc('iTr', '자간', () => S.track, ''); spc('iLd', '행간', () => S.lead, '%');
+  $('iFx').onclick = e => {
+    const n = e.target.dataset.n, c = curScene(); if (!n || !c) return; let cur = (c.opts.효과 || '').split('+').filter(Boolean);
+    if (n === '없음') cur = cur.includes('없음') ? [] : ['없음']; else { cur = cur.filter(x => x !== '없음'); cur = cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n]; }
+    if (cur.length) c.opts.효과 = cur.join('+'); else delete c.opts.효과; writeScene(S.sel);
+  };
   $('iUp').onclick = () => moveScene(S.sel, S.sel - 1); $('iDown').onclick = () => moveScene(S.sel, S.sel + 2);
-  $('iDup').onclick = () => { const lines = $('sb').value.split('\n'); lines.splice(sc.lineNo + 1, 0, serializeScene(sc)); $('sb').value = lines.join('\n'); parseNow(); };
-  $('iDel').onclick = () => { const lines = $('sb').value.split('\n'); lines.splice(sc.lineNo, 1); $('sb').value = lines.join('\n'); S.sel = -1; parseNow(); };
+  $('iDup').onclick = () => { const c = curScene(); const lines = $('sb').value.split('\n'); lines.splice(c.lineNo + 1, 0, serializeScene(c)); $('sb').value = lines.join('\n'); parseNow(); };
+  $('iDel').onclick = () => { const c = curScene(); const lines = $('sb').value.split('\n'); lines.splice(c.lineNo, 1); $('sb').value = lines.join('\n'); S.sel = -1; parseNow(); };
   $('iClose').onclick = () => { S.sel = -1; buildInspector(); buildTimeline(); };
 }
 // 문구 칸이 비었을 때 보여 줄 예시 (장면 종류별)
@@ -520,20 +614,21 @@ const LINE_GUIDE = {
 };
 
 // ---------- 직접 만들기: 장면을 골라 쌓고 문구를 직접 씀 ----------
+const DOWN = { 가격모션: '내려가기' };
 const PALETTE = {
   wide: [['typo', '타이포', '큰 글자 1~3줄'], ['hook', '훅 카피', '작은 문구 + 큰 문구'], ['impact', '강조', '분리·반복·기울임'], ['product', '상품', '상품 사진 + 문구'],
-    ['points', '포인트', '체크 표시 목록'], ['composition', '구성표', '구성품·수량'], ['price', '가격', '가격 공개·할인'], ['counter', '실적', '숫자 카운트업'],
+    ['points', '포인트', '체크 표시 목록'], ['composition', '구성표', '구성품·수량'], ['price', '가격', '숫자 굴리기'], ['price', '할인가', '정가→판매가 내려가기', DOWN], ['counter', '실적', '숫자 카운트업'],
     ['list', '목록', '단어가 차례로'], ['badge', '배지', '별모양 스탬프'], ['info', '정보', '항목: 내용 표'], ['urgent', '한정', '마감·매진 임박'], ['cta', '마무리', '주문 한마디'], ['outro', '로고', '브랜드 엔딩']],
   tong: [['typo', '타이포', '큰 글자'], ['hook', '훅 카피', '작은+큰 문구'], ['impact', '강조', '분리·반복'], ['product', '상품', '사진 + 문구'], ['badge', '배지', '스탬프'],
-    ['points', '포인트', '체크 목록'], ['price', '가격', '가격·할인'], ['composition', '구성표', '구성·수량'], ['info', '정보', '항목 표'], ['urgent', '한정', '마감 임박'], ['cta', '마무리', '주문 한마디']],
+    ['points', '포인트', '체크 목록'], ['price', '가격', '숫자 굴리기'], ['price', '할인가', '정가→내려가기', DOWN], ['composition', '구성표', '구성·수량'], ['info', '정보', '항목 표'], ['urgent', '한정', '마감 임박'], ['cta', '마무리', '주문 한마디']],
 };
 let palFmt = null, PANE = 'build';
 function buildPalette() {
   palFmt = S.fmt === '통강조' ? 'tong' : 'wide';
-  $('palette').innerHTML = PALETTE[palFmt].map(([t, n, d]) => `<button data-t="${t}" title="${BLOCKS[t].help.replace(/"/g, '&quot;')}"><b>${n}</b><small>${d}</small></button>`).join('');
+  $('palette').innerHTML = PALETTE[palFmt].map(([t, n, d], i) => `<button data-t="${t}" data-i="${i}" title="${BLOCKS[t].help.replace(/"/g, '&quot;')}"><b>${n}</b><small>${d}</small></button>`).join('');
 }
-function addScene(type) {
-  const o = {};
+function addScene(type, preset) {
+  const o = Object.assign({}, preset || {});
   if (type === 'product') { const a = Object.keys(S.assets).find(n => n !== '로고'); if (a) o.이미지 = a; }
   if (type === 'outro' && S.assets['로고']) o.이미지 = '로고';
   S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false;
@@ -543,7 +638,7 @@ function addScene(type) {
   setTimeout(() => { const t = $('iLines'); if (t) { t.focus(); t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }, 30);
 }
 function fillStackItem(el, sc) {
-  el.querySelector('.ty').textContent = BLOCK_LABEL[sc.type];
+  const ty = el.querySelector('.ty'), [bg, fg] = SEG_COL[sc.type] || SEG_COL.outro; ty.textContent = sc.type === 'price' && sc.opts.가격모션 === '내려가기' ? '할인가' : BLOCK_LABEL[sc.type]; ty.style.background = bg; ty.style.color = fg;
   const t = sceneText(sc), tx = el.querySelector('.tx'); tx.textContent = t || (sc.opts.이미지 ? `이미지: ${sc.opts.이미지}` : '문구를 써 주세요'); tx.classList.toggle('empty', !t && !sc.opts.이미지);
   el.querySelector('.du').textContent = sc.dur.toFixed(1) + '초';
 }
@@ -579,46 +674,8 @@ function showPane(p) {
   document.querySelectorAll('.pane').forEach(n => n.classList.toggle('on', n.id === 'pane-' + p));
   placeSceneCard();
 }
-// 오른쪽: 선택한 장면의 디자인 (배경·모션·전환·소품·효과)
-function buildInspector() {
-  buildSceneText(); buildStack();
-  const box = $('insp'); const sc = S.scenes[S.sel];
-  if (!sc) { box.innerHTML = '<div class="dim">장면 썸네일이나 타임라인을 누르면 여기서 그 장면의 배경·모션·전환·효과를 바꿀 수 있어요.</div>'; return; }
-  const o = sc.opts, tong = S.fmt === '통강조';
-  box.innerHTML = `
-    <div class="badge" style="display:inline-block;margin-bottom:10px">${S.sel + 1}번 장면 · ${BLOCK_LABEL[sc.type]}</div>
-    <div class="row2">
-      <div class="field"><label>배경</label>${opt('배경', ['1', '2', '3'], o.배경)}</div>
-      <div class="field"><label>모션</label>${opt('모션', Object.keys(MOTIONS), o.모션, '기본')}</div>
-      <div class="field"><label>다음 장면 전환</label>${opt('전환', TRANSITIONS.slice(1), o.전환)}</div>
-      <div class="field"><label>소품</label>${opt('소품', PROPS_LIST.filter(x => !(tong && x === 'TV')), o.소품, '기본')}</div>
-      ${sc.type === 'impact' ? `<div class="field"><label>강조 스타일</label>${opt('스타일', ['분리', '반복', '기울임', '박스'], o.스타일)}</div>` : ''}
-      ${sc.type === 'typo' ? `<div class="field"><label>타이포 방식</label>${opt('스타일', ['쌓기', '교체'], o.스타일)}</div>` : ''}
-      ${sc.type === 'product' && !tong ? `<div class="field"><label>이미지 위치</label>${opt('위치', ['좌', '우'], o.위치, '우')}</div>` : ''}
-      <div class="field"><label>강조 색</label><input type="text" data-k="색" value="${o.색 || ''}" placeholder="테마 기본 (#ff0000)"></div>
-      <div class="field"><label>강조박스</label><select data-k="강조박스"><option value="">끔</option><option ${o.강조박스 ? 'selected' : ''} value="켬">켬</option></select></div>
-    </div>
-    <div class="row2">
-      <div class="field"><label>자간 <span class="dim" id="iTrv"></span></label><input type="range" id="iTr" min="-10" max="30" step="1"></div>
-      <div class="field"><label>행간 <span class="dim" id="iLdv"></span></label><input type="range" id="iLd" min="60" max="180" step="5"></div>
-    </div>
-    <div class="field"><label>이 장면 효과 <span class="dim">(여러 개 가능)</span></label><div class="fxChips" id="iFx">${['없음', ...EFFECT_NAMES].map(n => `<button data-n="${n}" class="${(o.효과 || '').split('+').includes(n) ? 'on' : ''}">${n === '없음' ? '전체 효과 끄기' : n}</button>`).join('')}</div></div>`;
-  bindOpts(box, sc);
-  // 자간·행간: 장면 값이 없으면 전체 값을 따름 (전체 값과 같게 돌려놓으면 장면 값은 지움)
-  const spc = (id, key, glob, unit) => {
-    const el = $(id), lab = $(id + 'v'), cur = () => S.scenes[S.sel];
-    const show = () => { const c = cur(); const own = c && c.opts[key] !== undefined; lab.textContent = (own ? c.opts[key] : glob()) + unit + (own ? '' : ' (전체)'); };
-    el.value = o[key] !== undefined ? o[key] : glob(); show();
-    el.oninput = () => { const c = cur(); if (!c) return; const v = +el.value; if (v === glob()) delete c.opts[key]; else c.opts[key] = String(v); show(); S.dirty = true; };
-    el.onchange = () => writeScene(S.sel);
-  };
-  spc('iTr', '자간', () => S.track, ''); spc('iLd', '행간', () => S.lead, '%');
-  $('iFx').onclick = e => {
-    const n = e.target.dataset.n; if (!n) return; let cur = (sc.opts.효과 || '').split('+').filter(Boolean);
-    if (n === '없음') cur = cur.includes('없음') ? [] : ['없음']; else { cur = cur.filter(x => x !== '없음'); cur = cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n]; }
-    if (cur.length) sc.opts.효과 = cur.join('+'); else delete sc.opts.효과; writeScene(S.sel);
-  };
-}
+// 장면 편집 칸과 장면 목록을 지금 선택에 맞게 다시 그림 (장면 꾸미기도 이제 왼쪽 편집 칸 안에 있음)
+function buildInspector() { buildSceneText(); buildStack(); }
 
 // ---------- 장면 썸네일 + 끌어서 순서 바꾸기 ----------
 // to = 끼워 넣을 자리(0..n, 옮기기 전 기준)
@@ -650,7 +707,7 @@ async function buildThumbs() {
     const c = document.createElement('canvas'); c.width = tw; c.height = th2;
     d.innerHTML = `<div class="txt"></div><div class="cap"><span class="no">${i + 1}</span>${BLOCK_LABEL[sc.type]}<small>${sc.dur.toFixed(1)}초</small></div>`;
     d.insertBefore(c, d.firstChild); d.querySelector('.txt').textContent = sceneText(sc);
-    d.onclick = () => selectScene(i);
+    d.onclick = () => { if (PANE !== 'build' && PANE !== 'board') showPane('build'); selectScene(i); revealCard(); };
     d.ondragstart = e => { dragFrom = i; d.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) { } };
     d.ondragend = () => { dragFrom = -1; box.querySelectorAll('.thumb').forEach(t => t.classList.remove('dragging', 'dropL', 'dropR')); };
     d.ondragover = e => { if (dragFrom < 0) return; e.preventDefault(); const r = d.getBoundingClientRect(); const right = e.clientX > r.left + r.width / 2;
@@ -667,8 +724,10 @@ async function buildThumbs() {
     const tt = sc.start + Math.max(.1, Math.min(sc.dur * .62, sc.dur - FEEL.win - .15, 2.4));
     renderFrame(bctx, P, tt, view); const g = cards[i].getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(big, 0, 0, tw, th2);
   }
-  S.dirty = true; lastWarnKey = '';
+  S.dirty = true; lastWarnKey = null;
 }
+// 고른 장면의 편집 칸이 왼쪽 목록에서 보이게 (세로 한 줄 화면에서는 스크롤하지 않음)
+function revealCard() { setTimeout(() => { const c = $('sceneCard'); if (!c.hidden && c.parentNode === $('stack') && matchMedia('(min-width:1281px)').matches) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 40); }
 function markThumbs() { [...$('thumbs').querySelectorAll('.thumb')].forEach((t, k) => t.classList.toggle('sel', k === S.sel)); }
 
 // ---------- 키컬러 ----------
@@ -686,7 +745,7 @@ function suggestKeys() {
 }
 function applyKey(hex, quiet) {
   S.key = hex.toLowerCase(); const t = toneFromColor(S.key);
-  S.theme = 'key'; S.feel = t.feel; S.font = t.font;
+  S.theme = 'key'; S.feel = t.feel; S.font = t.font; $('fTheme').value = 'theme'; persist();
   setKeyColor(S.key); buildThemeGrid(); refreshKeyUI(); showTone(); writeSettings();
   if (!quiet) toast(`키컬러로 톤을 맞췄어요 · ${t.label}`, true);
 }
@@ -768,7 +827,7 @@ function restartAudio() {
 function stopAudio() { if (bgmNode) { try { bgmNode.stop(); } catch (_) { } bgmNode = null; } }
 
 // ---------- 재생 루프 ----------
-let lastTs = 0, lastWarnKey = '';
+let lastTs = 0, lastWarnKey = null;
 function loop(ts) {
   const dt = lastTs ? (ts - lastTs) / 1000 : 0; lastTs = ts;
   if (S.playing) {
@@ -935,7 +994,7 @@ function bindUI() {
   $('imgK').oninput = e => { S.imgK = +e.target.value; $('imgKv').textContent = S.imgK + '%'; S.dirty = true; };
   $('imgK').onchange = () => { writeSettings(); thumbsSoon(); };
   $('tabs').onclick = e => { const p = e.target.dataset.p; if (p) showPane(p); };
-  $('palette').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) addScene(b.dataset.t); };
+  $('palette').onclick = e => { const b = e.target.closest('button'); if (!b || !b.dataset.t) return; const it = PALETTE[palFmt][+b.dataset.i]; addScene(b.dataset.t, it && it[3]); };
   $('newBtn').onclick = () => { showPane('build'); if ($('sb').value.trim() === blankText(S.fmt)) return; setText(blankText(S.fmt), '빈 화면으로 새로 시작해요'); };
   // 자간·행간 (전체)
   $('trackK').oninput = e => { S.track = +e.target.value; $('trackKv').textContent = S.track; S.dirty = true; };
@@ -956,7 +1015,7 @@ function bindUI() {
   $('durNum').onchange = e => { S.dur = clamp(+e.target.value || FORMATS[S.fmt].dur, 1, FORMATS[S.fmt].max); writeSettings(); };
   $('lbarSel').onchange = e => { S.lbar = e.target.value; writeSettings(); };
   $('tplSel').onchange = e => { const t = TEMPLATES.find(x => x.id === e.target.value); if (t) setText(t.text, `'${t.name}' 예시를 불러왔어요`); e.target.value = ''; };
-  ['lbarChk', 'safeChk', 'warnChk'].forEach(id => $(id).onchange = () => { S.dirty = true; lastWarnKey = ''; if (!$('warnChk').checked) $('warns').innerHTML = ''; });
+  ['lbarChk', 'safeChk', 'warnChk'].forEach(id => $(id).onchange = () => { S.dirty = true; lastWarnKey = null; if (!$('warnChk').checked) $('warns').innerHTML = ''; });
   $('playBtn').onclick = () => setPlaying(!S.playing);
   $('restartBtn').onclick = () => { S.t = 0; S.dirty = true; if (S.playing) restartAudio(); };
   let drag = false;

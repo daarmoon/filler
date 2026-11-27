@@ -27,11 +27,13 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   // 장면 선택 → 왼쪽 문구 / 오른쪽 디자인
   await page.click('#thumbs .thumb:nth-child(2)'); await page.waitForTimeout(300);
   console.log('sceneCard visible:', await page.isVisible('#sceneCard'), '| iLines:', await page.isVisible('#sceneText #iLines'), '| right has iLines:', await page.$('#insp #iLines') !== null);
+  await page.evaluate(() => { const d = document.getElementById('iDesign'); if (d) d.open = true; });
   await page.click('#iFx button[data-n="코인"]'); await page.waitForTimeout(200);
   console.log('scene2:', (await page.inputValue('#sb')).split('\n')[2]);
   await page.screenshot({ path: `${out}/ui_wide.png` });
   const wideText = await page.inputValue('#sb');
-  // 통강조 탭
+  // 통강조 탭 (v8: 썸네일을 누르면 직접 만들기로 넘어가서 자동 연출로 돌아옴)
+  await page.click('#tabs button[data-p="quick"]');
   await page.click('#fmtSeg button[data-v="통강조"]'); await page.waitForTimeout(600); await page.click('#dirBtn'); await page.waitForTimeout(800);
   const tb = await page.$eval('#canvasWrap', el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), (r.width / r.height).toFixed(3)]; });
   console.log('tong canvasWrap', tb, 'cv', await page.evaluate(() => [cv.width, cv.height]), 'tag', await page.textContent('#sizeTag'));
