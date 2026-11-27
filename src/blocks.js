@@ -12,8 +12,8 @@ function roleStyle(e, role, size) {
 
 // 여러 줄 세로 스택 (영역 중앙 정렬)
 function drawStack(ctx, e, items, cx, cy, maxW, align = 'center', maxH) {
-  const gap = .16; maxH = maxH || e.A.h;
-  let sizes = items.map(it => Math.min(it.size, fitSize(ctx, it.text, it.font || (it.role === 'note' ? SUBFONT : e.F), it.size, maxW)));
+  const gap = .16 + (LEAD - 1) * 1.26; maxH = maxH || e.A.h; // 행간: 줄 사이 간격을 기본(1.26배)에서 LEAD만큼 늘이거나 줄임
+  let sizes = items.map(it => Math.min(it.size, fitSize(ctx, it.text, it.font || (it.role === 'note' ? SUBFONT : e.F), it.size, maxW, TRACK_ADD + ((it.extra && it.extra.tracking) || 0))));
   let total = sizes.reduce((a, s, i) => a + s * 1.1 + (i ? s * gap : 0), 0);
   if (total > maxH) { const k = maxH / total; sizes = sizes.map(s => s * k); total = maxH; }
   let y = cy - total / 2;
@@ -107,9 +107,9 @@ const BLOCKS = {
       const A = e.A;
       if (style === '분리') {
         const rows = L.map(l => l.includes('|') ? { parts: l.split('|'), size: 200 } : { text: l, size: 84 });
-        const total = rows.reduce((a, r) => a + r.size * 1.25, 0); let y = A.cy - total / 2; let k = 0;
+        const total = rows.reduce((a, r) => a + r.size * 1.25 * LEAD, 0); let y = A.cy - total / 2; let k = 0;
         rows.forEach((r, ri) => {
-          const s0 = r.size; y += s0 * .62;
+          const s0 = r.size; y += s0 * .62 * LEAD;
           if (r.text) { drawText(ctx, r.text, Object.assign(roleStyle(e, 'sub', s0), { x: A.cx, y, size: s0, motion: e.motion, t: e.lt, delay: .05 + ri * .3, maxW: A.w })); }
           else {
             const pieces = r.parts.map(p => p.trim());
@@ -130,7 +130,7 @@ const BLOCKS = {
             });
             reportBox(A.cx - tot / 2, y - s * .6, tot, s * 1.2, joined);
           }
-          y += s0 * .63;
+          y += s0 * .63 * LEAD;
         });
       } else if (style === '반복') {
         const main = L[L.length - 1]; const s = Math.min(170, fitSize(ctx, main, e.F, 170, A.w));

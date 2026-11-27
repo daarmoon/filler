@@ -5,6 +5,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, deviceScaleFactor: 1 });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(2500);
+  await require('./_demo')(page);
   // 주황 상품 이미지 만들어 올리기
   await page.evaluate(() => {
     const c = document.createElement('canvas'); c.width = 400; c.height = 500; const g = c.getContext('2d');

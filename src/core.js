@@ -78,6 +78,9 @@ const Collector = { boxes: [], on: false };
 function reportBox(x, y, w, h, label) { if (Collector.on) Collector.boxes.push({ x, y, w, h, label }); }
 
 // ---- 텍스트 측정/그리기 ----
+// 자간·행간 (전체 설정 '자간:' '행간:' 또는 장면 옵션) — render가 장면마다 바꿔 넣음
+// TRACK_ADD: 글자 크기 대비 추가 간격(0.05 = 5%), LEAD: 줄 간격 배율(1 = 기본)
+let TRACK_ADD = 0, LEAD = 1;
 function setFont(ctx, font, size) { ctx.font = `${font.weight || 400} ${size * (font.scale || 1)}px ${font.family}`; }
 
 // 줄 단위 레이아웃: 각 글자 위치를 계산
@@ -107,7 +110,7 @@ function fitSize(ctx, text, font, size, maxW, tracking = 0) {
 function drawText(ctx, text, o) {
   const font = o.font;
   let size = o.size;
-  const tracking = o.tracking || 0;
+  const tracking = (o.tracking || 0) + TRACK_ADD;
   if (o.maxW) size = Math.min(size, fitSize(ctx, text, font, size, o.maxW, tracking));
   const L = layoutLine(ctx, parseRich(text), font, size, tracking);
   let x0 = o.x;

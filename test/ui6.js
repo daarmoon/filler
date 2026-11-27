@@ -6,6 +6,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, deviceScaleFactor: 1, acceptDownloads: true });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(3000);
+  await require('./_demo')(page);
   await page.setInputFiles('#imgFile', 'test/product.png'); await page.waitForTimeout(400);
   const box = await page.$eval('#canvasWrap', el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), (r.width / r.height).toFixed(3)]; });
   console.log('wide canvasWrap', box);
@@ -31,7 +32,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.screenshot({ path: `${out}/ui_wide.png` });
   const wideText = await page.inputValue('#sb');
   // 통강조 탭
-  await page.click('#fmtSeg button[data-v="통강조"]'); await page.waitForTimeout(1200);
+  await page.click('#fmtSeg button[data-v="통강조"]'); await page.waitForTimeout(600); await page.click('#dirBtn'); await page.waitForTimeout(800);
   const tb = await page.$eval('#canvasWrap', el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), (r.width / r.height).toFixed(3)]; });
   console.log('tong canvasWrap', tb, 'cv', await page.evaluate(() => [cv.width, cv.height]), 'tag', await page.textContent('#sizeTag'));
   console.log('tong head:', (await page.inputValue('#sb')).split('\n')[0]);

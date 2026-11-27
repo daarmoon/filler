@@ -66,6 +66,7 @@ function renderScene(ctx, proj, i, t) {
   runFx(ctx, fxList, 'back', t, e);
   // 글자·이미지는 별도 레이어에 그린 뒤 살짝 떠다니듯 합성
   IMG_K = clamp((parseFloat(e.opts.크기) || 100) / 100 * (proj.imgK || 100) / 100, .3, 3);
+  setSpacing(proj, e.opts);
   const cl = layer(3), c = cl.getContext('2d');
   c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1; c.filter = 'none'; c.clearRect(0, 0, W, H);
   c.save();
@@ -76,11 +77,11 @@ function renderScene(ctx, proj, i, t) {
     c.save(); c.globalAlpha = ap; Props.tvScreen(c, r, e.P.accent2 === '#ffffff' ? e.P.accent : e.P.accent2, t); c.restore();
     e.A = { x: r.x + 40, y: r.y + 30, w: r.w - 80, h: r.h - 60 }; e.A.cx = e.A.x + e.A.w / 2; e.A.cy = e.A.y + e.A.h / 2;
     c.save(); c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip();
-    blockFor(e.sc.type).render(c, e.sc, e);
+    drawBlock(c, e);
     c.restore();
     Props.tv(c, r, 1);
-  } else blockFor(e.sc.type).render(c, e.sc, e);
-  IMG_K = 1;
+  } else drawBlock(c, e);
+  IMG_K = 1; TRACK_ADD = 0; LEAD = 1;
   c.restore();
   // 퇴장: 다음 전환이 컷/교차가 아니면 마지막 순간 살짝 떠오르며 사라짐
   let ex = 0;
@@ -98,6 +99,33 @@ function renderScene(ctx, proj, i, t) {
   runFx(ctx, fxList, 'front', t, e);
   runFx(ctx, fxList, 'post', t, e);
   return e;
+}
+
+// 미리보기에서만 보이는 안내(빈 장면 자리 표시 등). 영상·PNG로 내보낼 때는 끔
+let SHOW_HINTS = true;
+// 자간·행간: 장면 옵션이 있으면 그 값, 없으면 전체 설정
+function setSpacing(proj, opts) {
+  const tk = opts && opts.자간 !== undefined && opts.자간 !== '' && !isNaN(parseFloat(opts.자간)) ? parseFloat(opts.자간) : (proj.track || 0);
+  const ld = opts && parseFloat(opts.행간) > 0 ? parseFloat(opts.행간) : (proj.lead || 100);
+  TRACK_ADD = clamp(tk / 100, -.2, .6); LEAD = clamp(ld / 100, .5, 2.2);
+}
+// 문구가 하나도 없는 장면 (이미지만 쓰는 상품·로고 장면은 빼고)
+function sceneEmpty(sc) {
+  if (sc.type === 'outro' || sc.opts.이미지) return false;
+  return !sc.lines.some(l => plain(lineTag(l).text).replace(/[|\s]/g, '') !== '');
+}
+function drawBlock(c, e) {
+  if (sceneEmpty(e.sc)) { if (SHOW_HINTS) drawHint(c, e.A, `✏️ ${BLOCK_LABEL[e.sc.type] || ''} 장면 · 왼쪽에서 문구를 써 주세요`); return; }
+  try { blockFor(e.sc.type).render(c, e.sc, e); }
+  catch (err) { console.warn('장면 그리기 실패', e.sc, err); if (SHOW_HINTS) drawHint(c, e.A, '이 장면은 문구 형식이 맞지 않아 그릴 수 없어요'); }
+}
+function drawHint(c, A, msg) {
+  c.save(); const s = Math.max(30, Math.min(56, A.w / 22));
+  c.setLineDash([s * .5, s * .35]); c.lineWidth = Math.max(3, s * .08); c.strokeStyle = 'rgba(255,255,255,.75)';
+  c.fillStyle = 'rgba(0,0,0,.35)'; roundRect(c, A.x + A.w * .06, A.cy - s * 1.6, A.w * .88, s * 3.2, s * .6); c.fill(); c.stroke();
+  c.setLineDash([]); c.fillStyle = '#fff'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  setFont(c, SUBFONT, s); let fs = s; while (c.measureText(msg).width > A.w * .82 && fs > 14) { fs -= 2; setFont(c, SUBFONT, fs); }
+  c.fillText(msg, A.cx, A.cy); c.restore();
 }
 
 function transKind(sc, i) {
@@ -141,9 +169,15 @@ function drawTransition(ctx, kind, p, e, nextE) {
 
 /* view: { lbar:'full'|'bottom'|'none', showLbar, showSafe, warn } */
 function renderFrame(ctx, proj, t, view = {}) {
-  const S = proj.scenes; setStage(stageOf(proj));
+  const S = proj.scenes; setStage(stageOf(proj)); SHOW_HINTS = view.hints !== false;
   ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  if (!S.length) { ctx.restore(); drawOverlay(ctx, proj, view); return; }
+  if (!S.length) { // 아직 장면이 없을 때: 테마 배경과 안내만
+    const th = THEMES[proj.theme] || THEMES.ns; if (proj.theme === 'key') setKeyColor(proj.key);
+    try { th.bg(ctx, t, 0); } catch (_) { }
+    ctx.restore();
+    if (SHOW_HINTS) drawHint(ctx, areaFor(proj), STAGE === 'tong' ? '왼쪽에서 장면을 골라 쌓아 보세요' : '왼쪽 ‘직접 만들기’에서 장면을 골라 쌓아 보세요');
+    drawOverlay(ctx, proj, view); return;
+  }
   t = clamp(t, 0, proj.total - 1e-4);
   let i = S.findIndex(s => t >= s.start && t < s.start + s.dur); if (i < 0) i = S.length - 1;
   setFeel(proj.feel); if (proj.theme === 'key') setKeyColor(proj.key);

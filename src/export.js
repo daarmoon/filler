@@ -62,7 +62,7 @@ async function exportVideo(proj, opt, onProgress) {
   // 통강조는 3배 크기로 그린 뒤 376×790으로 줄여서 저장 (글자 가장자리가 더 깨끗함)
   const out = scaled ? document.createElement('canvas') : cv; if (scaled) { out.width = OW; out.height = OH; }
   const octx = scaled ? out.getContext('2d') : null; if (octx) octx.imageSmoothingQuality = 'high';
-  const view = { showLbar: !!opt.withLbar && STAGE === 'wide', showSafe: false, warn: false };
+  const view = { showLbar: !!opt.withLbar && STAGE === 'wide', showSafe: false, warn: false, hints: false };
   const usPerFrame = 1e6 / fps;
   for (let f = 0; f < nFrames; f++) {
     if (encErr) throw encErr;

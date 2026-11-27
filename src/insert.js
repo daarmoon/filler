@@ -25,8 +25,8 @@ function typoLine(ctx, e, it, x, y, size, o) {
   if (tag === '입체') Object.assign(st, { extrude: .07, extrudeColor: darker(P.em === P.text ? P.accent : P.em, .55), shadow: null });
   if (tag === '자간') st.tracking = .16;
   if (tag === '박스' || tag === '테이프') {
-    setFont(ctx, e.F, size); const s = Math.min(size, fitSize(ctx, it.text, e.F, size, o.maxW * .9));
-    setFont(ctx, e.F, s); const w = ctx.measureText(plain(it.text)).width + s * .6, h = s * 1.22;
+    const s = Math.min(size, fitSize(ctx, it.text, e.F, size, o.maxW * .9, TRACK_ADD));
+    const w = layoutLine(ctx, parseRich(it.text), e.F, s, TRACK_ADD).width + s * .6, h = s * 1.22;
     const p = Ease.outCubic(prog(o.t, o.delay, .3)); if (p <= 0) return null;
     ctx.save(); ctx.translate(x, y); if (tag === '테이프') ctx.rotate(-.075);
     ctx.fillStyle = tag === '테이프' ? (P.card || '#ffffff') : P.emBox;
@@ -63,7 +63,7 @@ BLOCKS.typo = {
       const per = e.D / groups.length, gi = clamp(Math.floor(e.lt / per), 0, groups.length - 1), g = groups[gi], lt = e.lt - gi * per;
       const len = plain(g.main.text).replace(/\s/g, '').length;
       const big = (len <= 3 ? 400 : len <= 6 ? 300 : 230) * (g.main.tag === '크게' ? 1.15 : 1);
-      const hs = big * .3, gap = 26, totalH = g.head.length * (hs + gap) + big;
+      const hs = big * .3, gap = 26 + (LEAD - 1) * (hs + 26), totalH = g.head.length * (hs + gap) + big;
       let y = A.cy - totalH / 2;
       g.head.forEach((h, k) => { typoLine(ctx, e, h, A.cx, y + hs / 2, hs, { maxW: A.w, motion: 'slide', t: lt, delay: 0, label: '타이포' }); y += hs + gap; });
       const mo = own ? e.motion : ['stamp', 'zoom', 'pop', 'slide'][gi % 4];
@@ -75,7 +75,7 @@ BLOCKS.typo = {
     // 쌓기: 줄이 하나씩 쌓이며 남음
     const base = typoBase(items.filter(i => i.tag !== '작게').length);
     let sizes = items.map(it => typoSize(it, base));
-    const gap = .14; let total = sizes.reduce((a, s) => a + s * (1 + gap), 0) - sizes[sizes.length - 1] * gap;
+    const gap = .14 + (LEAD - 1) * 1.14; let total = sizes.reduce((a, s) => a + s * (1 + gap), 0) - sizes[sizes.length - 1] * gap;
     if (total > A.h * .88) { const k = A.h * .88 / total; sizes = sizes.map(s => s * k); total *= k; }
     const per = Math.min(.42, (e.D * .45) / items.length);
     let y = A.cy - total / 2;

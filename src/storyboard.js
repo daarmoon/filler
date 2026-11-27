@@ -21,7 +21,8 @@ const TRANSITIONS = ['자동', '컷', '디졸브', '밀기', '플래시', '와�
 const FEEL_NAMES = ['부드럽게', '보통', '강하게'];
 const AUTO_TRANS = ['와이프', '플래시', '줌', '원형', '타이포'];
 const PROPS_LIST = ['없음', '사이렌', '시계', '선물', '화살표위', '화살표아래', 'TV'];
-const FORMATS = { 하드필러: { lbar: 'full', dur: 20 }, 오프닝필러: { lbar: 'bottom', dur: 25 }, 인서트: { lbar: 'full', dur: 15 }, 통강조: { lbar: 'tong', dur: 15 } };
+// max: 형식별 최대 길이(초). 통강조는 L바 네모 안에서 최대 8초
+const FORMATS = { 하드필러: { lbar: 'full', dur: 20, max: 30 }, 오프닝필러: { lbar: 'bottom', dur: 25, max: 30 }, 인서트: { lbar: 'full', dur: 15, max: 30 }, 통강조: { lbar: 'tong', dur: 8, max: 8 } };
 
 function themeFromName(v) {
   if (!v) return null; v = v.trim();
@@ -74,7 +75,7 @@ function parseStoryboard(text) {
 
 function serializeScene(sc) {
   const o = Object.entries(sc.opts || {}).filter(([k, v]) => v !== '' && v != null).map(([k, v]) => v === '켬' ? k : `${k}: ${v}`);
-  return `[${sc.label || BLOCK_LABEL[sc.type]}] ${sc.lines.join(' / ')}${o.length ? ' {' + o.join(', ') + '}' : ''}`;
+  return `[${sc.label || BLOCK_LABEL[sc.type]}]${sc.lines.length ? ' ' + sc.lines.join(' / ') : ''}${o.length ? ' {' + o.join(', ') + '}' : ''}`;
 }
 function serializeSettings(s) {
   return Object.entries(s).filter(([k, v]) => v).map(([k, v]) => `${k}: ${v}`).join(' / ');

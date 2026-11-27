@@ -6,7 +6,7 @@ const { chromium } = require('playwright'); const path = require('path');
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(1500);
   await page.setInputFiles('#bgmFile', 'test/bgm.wav'); await page.waitForTimeout(1200);
   console.log('bgm', await page.textContent('#bgmBox'));
-  await page.evaluate(() => { S.dur = 6; writeSettings(); });
+  await page.evaluate(() => { setText(TEMPLATES[0].text); S.dur = 6; writeSettings(); });
   await page.click('#exportBtn');
   console.log('ffmpeg hint ok:', (await page.inputValue('#ffCmd')).includes('mxf'));
   const dl = page.waitForEvent('download', { timeout: 120000 }).catch(async e => { console.log('MSG', await page.textContent('#expMsg'), errs); throw e; });

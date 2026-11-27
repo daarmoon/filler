@@ -6,11 +6,12 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const page = await browser.newPage({ viewport: { width: 1680, height: 1050 }, deviceScaleFactor: +(process.env.DPR || 1), acceptDownloads: true });
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(3000);
+  await require('./_demo')(page);
   await page.setInputFiles('#imgFile', 'test/product.png'); await page.waitForTimeout(500);
   console.log('asset size after trim:', await page.evaluate(() => Object.values(S.assets).map(a => a.img.width + 'x' + a.img.height)));
   console.log('ver:', await page.textContent('#appVer'));
   // 인서트 탭
-  await page.click('#fmtSeg button[data-v="인서트"]'); await page.waitForTimeout(1200);
+  await page.click('#fmtSeg button[data-v="인서트"]'); await page.waitForTimeout(600); await page.click('#dirBtn'); await page.waitForTimeout(800);
   const sb = await page.inputValue('#sb'); console.log('insert head:', sb.split('\n')[0]); console.log('insert scenes:', await page.evaluate(() => S.scenes.map(s => s.type + (s.opts.스타일 ? '/' + s.opts.스타일 : '')).join(', ')), await page.evaluate(() => S.total.toFixed(1)));
   console.log('fDan visible:', await page.isVisible('#fDan'), 'imgK visible:', await page.isVisible('#imgK'));
   await page.fill('#fDan', '박스당 최저가격찬스 | NS기준, 50% 세일, 총5회'); await page.press('#fDan', 'Tab'); await page.waitForTimeout(300);

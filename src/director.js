@@ -192,7 +192,7 @@ function directTong(d, seed = 1) {
   const feel = d.theme === 'key' ? (d.feel || '보통') : ST ? ST.feel : (d.feel || '보통');
   const themeId = d.theme === 'key' ? 'key' : ST ? ST.theme : (d.theme && THEMES[d.theme] ? d.theme : guessTheme(d));
   const fontId = d.theme === 'key' ? d.font : ST ? ST.font : d.font;
-  const dur = d.fmt === '통강조' && d.dur ? d.dur : 15;
+  const dur = Math.min(FORMATS.통강조.max, d.fmt === '통강조' && d.dur ? d.dur : FORMATS.통강조.dur);
   const product = String(d.product || '').trim(), P = calcPrice(d);
   const price = P.auto ? won(P.price) : formatPrice(d.price);
   const comps = (d.comps || []).filter(c => c.name), benefits = (d.benefits || []).filter(Boolean), points = (d.points || []).filter(Boolean);
@@ -218,10 +218,9 @@ function directTong(d, seed = 1) {
   // 6) 혜택 · 한정
   if (benefits.length >= 2) add('혜택', ['*방송에서만* 혜택', ...benefits.slice(0, 3)]);
   add('한정', d.urgent ? ['방송 끝나면', ...splitHook(d.urgent).map(emph).slice(0, 2)] : [pick(['서두르세요', '고객님 지금!', '방송 중에만'], 8), emph(pick(['매진 임박', '수량 한정', '주문 폭주'], 9))], { 소품: noProps ? '없음' : pick(['사이렌', '시계'], 10) });
-  // 길이에 맞게 덜어냄 (장면당 2.5초 정도)
-  const maxScenes = Math.max(3, Math.round(dur / 2.6));
-  for (const b of ['혜택', '구성표', '한정', '포인트', '배지', '강조']) { if (S.length <= maxScenes) break; const k = S.findIndex((s, i) => s.block === b && !(b === '가격')); if (k > 0) S.splice(k, 1); }
-  while (S.length > maxScenes) { const k = S.map(s => s.block).lastIndexOf('가격'); if (k > 0 && S.filter(s => s.block === '가격').length > 1) S.splice(k, 1); else S.splice(S.length - 1, 1); }
+  // 통강조는 최대 8초라 장면 2개로: 첫 장면(상품·훅) + 가격(없으면 배지·강조·한정 중 하나)
+  const second = S.find((s, i) => i > 0 && s.block === '가격') || S.find((s, i) => i > 0 && ['배지', '강조'].includes(s.block)) || S.find((s, i) => i > 0);
+  S.splice(0, S.length, ...[S[0], second].filter(Boolean));
   let prevBg = -1;
   S.forEach((s, i) => {
     let bg = 1 + Math.floor(r(100 + i) * 3) % 3; if (bg === prevBg) bg = bg % 3 + 1; prevBg = bg; if (i > 0 || r(20) > .5) s.opts.배경 = String(bg);
@@ -252,7 +251,7 @@ function directInsert(d, seed = 1) {
   const product = String(d.product || '').trim(), P = calcPrice(d), rate = P.rate > 0 ? P.rate : 0;
   const price = P.auto ? won(P.price) : formatPrice(d.price);
   const comps = (d.comps || []).filter(c => c.name), firstImg = (comps.find(c => c.img) || {}).img;
-  const benefits = (d.benefits || []).filter(Boolean), hook = splitHook(d.hook), urgent = splitHook(d.urgent || '');
+  const points = (d.points || []).filter(Boolean), hook = splitHook(d.hook), urgent = splitHook(d.urgent || '');
   const cp = (k, def) => (ST && ST.copy && ST.copy[k]) || def;
   const S = []; const add = (block, lines, opts = {}, tag = '') => { lines = lines.filter(Boolean); if (lines.length) S.push({ block, lines, opts, tag }); };
   // 1) 여는 장면: 작은 머리 줄 + 큰 한마디가 쌓임
@@ -272,8 +271,8 @@ function directInsert(d, seed = 1) {
   add('타이포', [`(크게)*${plain(word)}*`], { 스타일: '교체', 효과: '글자패턴+플래시', 패턴: plain(word) }, 'word');
   // 5) 가격
   if (price) { const o = {}; if (P.list) o.정가 = won(P.list); if (rate) o.할인 = rate + '%'; add('가격', [d.pricePre || pick(['단,', '방송에서만', '최종혜택가'], 8), price, d.priceNote || ''], o, 'price'); }
-  // 6) 혜택 한 줄씩 빠르게
-  if (benefits.length) add('타이포', ['(작게)방송에서만', ...benefits.slice(0, 2).map(b => emph(b))], { 스타일: '교체' }, 'benefit');
+  // 6) 소구점(특징·포인트)을 한 줄씩 크게 박음
+  if (points.length) add('타이포', ['(작게)이래서 잘 팔려요', ...points.slice(0, 3).map(b => emph(b))], { 스타일: '교체' }, 'benefit');
   // 7) 방송 끝나면 가격은 올라갑니다
   add('타이포', urgent.length ? ['(작게)방송이 끝나면', ...urgent.slice(0, 2).map((u, i) => i === urgent.length - 1 ? `(외곽)${emph(u)}` : u)] : ['(작게)방송이 끝나면', '가격은', '(외곽)*올라갑니다*'], { 스타일: '쌓기', 효과: '화살표상승', 배경: '2' }, 'urgent');
   // 8) 마무리: 큰 말 + 박스 문구
@@ -300,9 +299,9 @@ function directInsert(d, seed = 1) {
 
 // ---------- Claude AI 연출 (선택: 사용자 API 키 필요) ----------
 function aiGrammarDoc() {
-  const blocks = Object.entries(BLOCKS).map(([id, b]) => `- [${BLOCK_LABEL[id]}] ${b.name}: ${b.help}. 예) ${b.sample}`).join('\n');
+  const blocks = Object.entries(BLOCKS).filter(([id]) => id !== 'benefits').map(([id, b]) => `- [${BLOCK_LABEL[id]}] ${b.name}: ${b.help}. 예) ${b.sample}`).join('\n');
   return `홈쇼핑 "하드필러" 영상의 스토리보드 문법.
-첫 줄은 설정: 테마: <이름> / 길이: <초> / 형식: 하드필러|오프닝필러|인서트|통강조 / L바: 기본|하단바|없음 / 느낌: 부드럽게|보통|강하게 / 폰트: <이름> / 효과: <효과+효과> (전체 장면에 깔리는 효과, 선택) / 단서: <제목 | 작은 고지 문구> (선택, 단서자막 자리에 작게) / 이미지크기: <퍼센트, 기본 100>
+첫 줄은 설정: 테마: <이름> / 길이: <초> / 형식: 하드필러|오프닝필러|인서트|통강조 / L바: 기본|하단바|없음 / 느낌: 부드럽게|보통|강하게 / 폰트: <이름> / 효과: <효과+효과> (전체 장면에 깔리는 효과, 선택) / 단서: <제목 | 작은 고지 문구> (선택, 단서자막 자리에 작게) / 이미지크기: <퍼센트, 기본 100> / 자간: <글자 사이 간격, 글자 크기의 %, 기본 0, 예 -5·10> / 행간: <줄 간격 %, 기본 100>
   (테마를 "키컬러"로 하면 키컬러: #hex 한 색으로 배경·글자색을 맞춰 만듦. 사용자가 키컬러를 정했으면 그 테마를 우선 고려)
 그 다음부터 한 줄이 한 장면: [블록] 문구 / 문구 {옵션: 값, 옵션: 값}
 - "/"는 화면의 줄바꿈. *별표*로 감싼 부분은 포인트 색으로 강조.
@@ -312,17 +311,17 @@ ${blocks}
 [가격] 전용 옵션: 정가(취소선으로 표시, 예 99,000원) · 할인(배지, 예 23%)
 효과(장면 옵션, +로 여러 개, 없음=전체 효과 끄기): ${EFFECT_NAMES.join('·')}
 [타이포] 줄 앞 꾸밈: (외곽) 속 빈 글자 · (박스) 색 상자 안 글자 · (테이프) 기울어진 띠 · (입체) 긴 그림자 · (자간) 넓은 자간 · (작게) 작은 머리 줄 · (크게) 더 크게. 스타일: 쌓기(줄이 하나씩 쌓임) | 교체(한 줄씩 화면 가득 바꿔 침). 효과 글자패턴은 옵션 패턴: <반복할 단어> 로 단어를 정할 수 있음.
-옵션: 길이(초, 보통 비움) · 크기(이미지 크기 퍼센트, 예 130) · 모션(${Object.keys(MOTIONS).join('·')}) · 전환(${TRANSITIONS.join('·')}) · 배경(1·2·3: 테마 안의 배경 종류) · 소품(${PROPS_LIST.join('·')}) · 이미지(이름) · 스타일([강조] 전용: 분리·반복·기울임·박스) · 강조박스 · 색(#hex) · 위치(좌·우)
+옵션: 길이(초, 보통 비움) · 크기(이미지 크기 퍼센트, 예 130) · 자간(%) · 행간(%) · 모션(${Object.keys(MOTIONS).join('·')}) · 전환(${TRANSITIONS.join('·')}) · 배경(1·2·3: 테마 안의 배경 종류) · 소품(${PROPS_LIST.join('·')}) · 이미지(이름) · 스타일([강조] 전용: 분리·반복·기울임·박스) · 강조박스 · 색(#hex) · 위치(좌·우)
 테마 이름: ${Object.values(THEMES).map(t => t.name).join(', ')}
 폰트 이름: ${Object.values(FONTS).map(f => f.name.split(' ')[0]).join(', ')}
 통강조(형식: 통강조): L바 왼쪽 네모 안에 들어가는 376×790 세로 영상. L바 설정은 쓰지 않고 대신
   머리: <위 고정 띠 문구, | 로 두 줄> / 꼬리: <아래 고정 띠 문구, | 로 두 줄> / 틀: ${TONG_FRAMES.join('|')} 를 씀.
-  세로로 좁으니 한 줄은 6자 안팎, 장면 4~6개, 길이 15초 전후. [포인트]·[배지]·[정보]·[가격] 블록이 잘 어울림. 소품 TV는 쓰지 않음.
+  세로로 좁으니 한 줄은 6자 안팎. 최대 8초라서 장면은 2개(예: 상품·강조 한 장면 + 가격 한 장면), 길이 8초. [배지]·[강조]·[가격] 블록이 잘 어울림. 소품 TV는 쓰지 않음.
 인서트(형식: 인서트): 하드필러와 같은 L바 화면이지만 큰 글자를 1~2초마다 빠르게 바꿔 치는 키네틱 타이포 위주. [타이포] 블록을 중심으로 7~10장면, 길이 13~20초. 배경 효과 글자패턴·화살표하락(가격 내려감)·화살표상승(방송 끝나면 가격 오름)·대각분할·원형스포트·폭죽·플래시가 잘 어울림. 전환은 컷·플래시 위주로 빠르게.
 규칙:
 - 화면 한 줄은 짧게(큰 글자 줄은 8자 안팎, 작은 줄 14자 안팎). 한 장면에 2~4줄.
 - 전체 길이 20초 전후 하드필러는 6~8장면, 장면당 2~3.5초가 되도록 구성.
-- 가격·구성·한정 메시지가 반드시 들어가게. 같은 배경 번호·모션이 연달아 반복되지 않게 변화를 줌.
+- 가격·구성·한정 메시지가 반드시 들어가게. 혜택 리스트([혜택]) 장면은 쓰지 말고, 소구점은 [타이포]·[강조]로 크게 한 번씩 박음. 같은 배경 번호·모션이 연달아 반복되지 않게 변화를 줌.
 - 하단 단서자막 자리와 L바는 툴이 알아서 피하니 신경 쓰지 않아도 됨.
 - 테마·폰트·모션·전환·효과를 조합해 기존 템플릿과 다른 새로운 스타일을 적극적으로 시도해도 좋음. 단, 효과는 장면당 1~2개 정도로 절제.
 - 참고용 스타일 프리셋: ${Object.values(STYLES).map(x => `${x.name}(테마 ${THEMES[x.theme].name}, 폰트 ${FONTS[x.font].name.split(' ')[0]}, 모션 ${x.motions.join('/')}, 효과 ${[...x.fx, ...Object.values(x.blockFx || {}).flat()].filter((v, i, a) => a.indexOf(v) === i).join('/') || '없음'})`).join('; ')}`;

@@ -62,6 +62,7 @@ main{display:grid;grid-template-columns:400px minmax(0,1fr) 330px;gap:18px;paddi
 .card h3{margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px}
 .card h3 .num{width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;display:grid;place-items:center;font-size:12px;flex:none}
 .card h3 .badge{margin-left:auto}
+.badge:empty{display:none}
 .badge{font-size:11px;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:2px 9px;color:var(--ink2);font-weight:500}
 .tabs{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;box-shadow:var(--sh)}
 .tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:9px 8px;font-weight:700;color:var(--ink2)}
@@ -216,6 +217,27 @@ progress{width:100%;height:10px;accent-color:var(--red)}
 .styleNow b{color:var(--red)}
 .styleNow:empty{display:none}
 .sceneCard{border-color:var(--red-mid);box-shadow:0 0 0 3px rgba(244,0,19,.06),var(--sh)}
+/* 직접 만들기: 장면 고르기 + 쌓은 장면 목록 */
+.palette{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.palette button{border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;align-items:center;gap:1px;white-space:normal;line-height:1.25;background:var(--field);border-color:var(--line)}
+.palette button b{font-size:13px;color:var(--ink)}
+.palette button small{font-size:10.5px;color:var(--dim);font-weight:400}
+.palette button:hover{border-color:var(--red);background:var(--red-soft);transform:translateY(-1px)}
+.palette button:hover b{color:var(--red)}
+.stack{display:flex;flex-direction:column;gap:6px}
+.stItem{display:grid;grid-template-columns:24px 58px 1fr auto;gap:8px;align-items:center;background:var(--field);border:1px solid var(--line);border-radius:12px;padding:8px 10px;cursor:pointer;transition:all .15s}
+.stItem:hover{border-color:var(--red-mid)}
+.stItem.sel{background:var(--red-soft);border-color:var(--red);border-bottom-left-radius:4px;border-bottom-right-radius:4px}
+.stItem .no{width:22px;height:22px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700}
+.stItem.sel .no{background:var(--red)}
+.stItem .ty{font-weight:700;font-size:12.5px}
+.stItem .tx{font-size:12.5px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stItem .tx.empty{color:var(--red);font-style:italic}
+.stItem .du{font-size:11px;color:var(--dim)}
+.stEmpty{border:2px dashed var(--line2);border-radius:12px;padding:18px;text-align:center;color:var(--dim);font-size:13px}
+.stack .sceneCard{margin:-6px 0 4px;border-top-left-radius:4px;border-top-right-radius:4px;border-color:var(--red);padding:12px}
+.stack .sceneCard h3{display:none}
+.tabs button{padding:9px 4px;font-size:13px}
 .sceneCard textarea{min-height:96px;font:13px/1.55 'Noto Sans KR',monospace}
 .tongOnly{display:none!important}
 body.tong .tongOnly{display:flex!important}
@@ -244,6 +266,7 @@ body.tong .wideOnly{display:none!important}
   <div class="seg fmtTabs" id="fmtSeg"><button data-v="하드필러" class="on">하드필러</button><button data-v="오프닝필러">오프닝필러</button><button data-v="인서트" title="큰 글자를 빠르게 바꿔 치는 타이포 영상 (L바 화면)">인서트</button><button data-v="통강조" title="L바 왼쪽 네모 안에 들어가는 세로 영상 (376×790)">통강조</button></div>
   <div class="durBox"><label>길이</label><input type="range" id="durRange" min="5" max="30" step="0.5" value="20"><input type="number" id="durNum" min="3" max="60" step="0.5" value="20"><span class="dim">초</span></div>
   <div class="spacer"></div>
+  <button class="ghost" id="newBtn" title="빈 화면에서 새로 시작 (되돌리기 가능)">＋ 새로 만들기</button>
   <button class="ghost" id="undoBtn" title="되돌리기 (Ctrl+Z)" disabled>↶ 되돌리기</button>
   <button class="ghost" id="saveBtn" title="스토리보드·이미지·BGM을 파일 하나로 저장 (Ctrl+S)">저장</button>
   <button class="ghost" id="openBtn">열기</button><input type="file" id="openFile" accept=".json,.hfm" hidden>
@@ -253,13 +276,25 @@ body.tong .wideOnly{display:none!important}
   <!-- 왼쪽: 상품 · 문구 · 숫자 · 프롬프트 -->
   <section class="col">
     <div class="colHead"><b>내용</b><span class="dim">상품 · 문구 · 숫자 · AI 요청</span></div>
-    <div class="card sceneCard" id="sceneCard" hidden>
+    <div id="sceneHome"><div class="card sceneCard" id="sceneCard" hidden>
       <h3>✏️ 선택한 장면 문구 <span class="badge" id="scBadge"></span></h3>
       <div id="sceneText"></div>
-    </div>
-    <div class="tabs" id="tabs"><button data-p="quick" class="on">✨ 간편 입력</button><button data-p="board">📝 스토리보드</button><button data-p="src">🖼 소스</button></div>
+    </div></div>
+    <div class="tabs" id="tabs"><button data-p="build" class="on">🧱 직접 만들기</button><button data-p="quick">✨ 자동 연출</button><button data-p="board">📝 스토리보드</button><button data-p="src">🖼 소스</button></div>
 
-    <div class="pane on" id="pane-quick">
+    <div class="pane on" id="pane-build">
+      <div class="card">
+        <h3><span class="num">1</span>장면 고르기 <span class="badge">누르면 아래에 쌓여요</span></h3>
+        <div class="palette" id="palette"></div>
+      </div>
+      <div class="card">
+        <h3><span class="num">2</span>내 장면 · 문구 쓰기 <span class="badge" id="stackCount"></span></h3>
+        <div class="stack" id="stack"></div>
+        <div class="hint" style="margin-top:10px">장면을 누르면 그 자리에서 문구를 쓸 수 있어요. 한 줄이 화면의 한 줄, <code>*별표*</code>로 감싸면 포인트 색이에요. 순서는 아래 장면 썸네일을 끌어서 바꿔요.<br>참고용 예시가 필요하면 📝 스토리보드 탭의 ‘예시 불러오기’, 상품 정보로 한 번에 만들려면 ✨ 자동 연출.</div>
+      </div>
+    </div>
+
+    <div class="pane" id="pane-quick">
       <div class="card">
         <h3><span class="num">1</span>상품 정보만 채우면 연출은 알아서 해요</h3>
         <div class="field"><label>상품명</label><input type="text" id="fProduct" placeholder="예: 마데카 크림"></div>
@@ -291,7 +326,6 @@ body.tong .wideOnly{display:none!important}
           <label class="tog" style="align-self:flex-start"><input type="checkbox" id="fPerScene" checked>'1팩당 약 ○원꼴' 장면 넣기</label>
           <div class="calc" id="fCalc"></div>
         </div>
-        <div class="field"><label>혜택 <span class="dim">(한 줄에 하나, 선택)</span></label><textarea id="fBenefits" rows="3" placeholder="무이자 6개월&#10;사은품 증정"></textarea></div>
         <div class="field"><label>한정·마감 문구 <span class="dim">(비우면 자동)</span></label><input type="text" id="fUrgent" placeholder="예: 방송 끝나면 / *이 조건 불가능*"></div>
         <div class="field wideOnly"><label>단서 자막 <span class="dim">(선택 · 화면 아래 단서자막 자리에 작게)</span></label><input type="text" id="fDan" placeholder="예: 박스당 NS최저가격찬스 | NS기준, 50% 세일, 총5회"></div>
         <div class="hint">줄을 나누려면 <code>/</code>, 포인트 색은 <code>*별표*</code>로 감싸요. 단서 자막은 <code>|</code> 앞이 굵은 제목, 뒤가 작은 고지 문구예요.</div>
@@ -344,10 +378,11 @@ body.tong .wideOnly{display:none!important}
           <tr><td><code>효과</code></td><td>코인+반짝이 처럼 <code>+</code>로 여러 개 · <code>없음</code>은 전체 효과 끄기</td></tr>
           <tr><td>타이포</td><td><code>[타이포] (작게)지금 이 방송 / *찬란한 혜택!* {스타일: 쌓기}</code> · 스타일 <code>쌓기</code>(줄이 쌓임) · <code>교체</code>(한 줄씩 화면 가득) · 줄 앞 <code>(외곽)</code> <code>(박스)</code> <code>(테이프)</code> <code>(입체)</code> <code>(자간)</code> <code>(작게)</code> <code>(크게)</code></td></tr>
           <tr><td>이미지</td><td><code>크기: 130</code> 장면 이미지 크기(%) · 첫 줄 <code>이미지크기: 120</code> 전체</td></tr>
+          <tr><td>자간·행간</td><td>첫 줄 <code>자간: -5 / 행간: 90</code> 전체 · 장면 옵션 <code>{자간: 10, 행간: 120}</code> (자간은 글자 크기의 %, 행간은 기본 100%)</td></tr>
           <tr><td>기타</td><td><code>스타일</code>(강조: 분리·반복·기울임·박스) · <code>강조박스</code> · <code>색: #F40013</code> · <code>폰트: 명조</code> · <code>위치: 좌</code></td></tr>
           <tr><td>첫 줄</td><td><code>형식: 하드필러 / 테마: NS 레드 / 길이: 20 / L바: 기본 / 느낌: 부드럽게</code></td></tr>
           <tr><td>인서트</td><td><code>형식: 인서트 / 단서: 박스당 NS최저가격찬스 | NS기준, 50% 세일</code> · 효과 <code>글자패턴</code>(<code>패턴: SALE</code>) · <code>화살표하락</code> · <code>화살표상승</code> · <code>대각분할</code> · <code>원형스포트</code> · <code>종이질감</code> · <code>플래시</code></td></tr>
-          <tr><td>통강조</td><td><code>형식: 통강조 / 머리: 위 띠 문구 / 꼬리: 앱 주문 시 | 3천원 적립 / 틀: 카드</code> (<code>|</code>는 띠 안 줄바꿈)</td></tr>
+          <tr><td>통강조</td><td><code>형식: 통강조 / 머리: 위 띠 문구 / 꼬리: 앱 주문 시 | 3천원 적립 / 틀: 카드</code> (<code>|</code>는 띠 안 줄바꿈) · 최대 8초, 장면 2개 정도</td></tr>
         </table>
       </div>
     </div>
@@ -356,7 +391,7 @@ body.tong .wideOnly{display:none!important}
       <div class="card">
         <h3>이미지 소스 <span class="badge">상품컷 · 로고</span></h3>
         <label class="drop" id="imgDrop"><b>이미지를 끌어다 놓거나 눌러서 올리기</b>PNG·JPG 여러 장 가능 · 흰 배경은 '배경 제거'로 지워져요<input type="file" id="imgFile" accept="image/*" multiple hidden></label>
-        <div class="hint" style="margin:8px 0 10px">스토리보드에 <code>@이름</code> 또는 <code>{이미지: 이름}</code>으로 쓰면 들어가요. 간편 입력의 구성에서도 고를 수 있어요.</div>
+        <div class="hint" style="margin:8px 0 10px">스토리보드에 <code>@이름</code> 또는 <code>{이미지: 이름}</code>으로 쓰면 들어가요. 장면의 이미지 칸이나 자동 연출의 구성에서도 고를 수 있어요.</div>
         <div id="assets"></div>
       </div>
       <div class="card">
@@ -411,6 +446,11 @@ body.tong .wideOnly{display:none!important}
       </div>
       <div class="field wideOnly"><label>L바</label><select id="lbarSel"><option value="full">기본 L바</option><option value="bottom">하단바만</option><option value="none">없음</option></select></div>
       <div class="field"><label>상품 이미지 크기 <span class="dim" id="imgKv">100%</span></label><input type="range" id="imgK" min="50" max="200" step="5" value="100"><span class="hint">모든 장면의 상품 이미지를 한 번에 키우거나 줄여요. 장면마다 따로 하려면 왼쪽 '선택한 장면 문구'의 이미지 크기를 쓰세요.</span></div>
+      <div class="row2">
+        <div class="field"><label>자간 <span class="dim" id="trackKv">0</span></label><input type="range" id="trackK" min="-10" max="30" step="1" value="0"></div>
+        <div class="field"><label>행간 <span class="dim" id="leadKv">100%</span></label><input type="range" id="leadK" min="60" max="180" step="5" value="100"></div>
+      </div>
+      <span class="hint" style="margin:-6px 0 10px;display:block">자간은 글자 사이(글자 크기의 %), 행간은 줄 사이 간격이에요. 장면마다 따로 하려면 아래 '선택한 장면 꾸미기'.</span>
       <div class="field tongOnly"><label>틀 <span class="dim">통강조 화면 테두리</span></label><select id="frameSel"><option value="없음">없음</option><option value="카드">카드 (반투명 판)</option><option value="테두리">테두리 (이중선)</option><option value="네온">네온 (빛나는 선)</option><option value="코너">코너 (모서리 꺾쇠)</option></select></div>
       <div class="field"><label>전체 효과 <span class="dim">모든 장면에 깔려요</span></label><div class="fxChips" id="fxGlobal"></div></div>
     </div>

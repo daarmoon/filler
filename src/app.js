@@ -4,11 +4,11 @@ const LBAR_NAMES = { 기본: 'full', 'L바': 'full', 하단바: 'bottom', 없음
 const LBAR_LABEL = { full: '기본', bottom: '하단바', none: '없음', tong: '' };
 
 const S = {
-  text: '', texts: {}, fmt: '하드필러', head: '', foot: '', dan: '', imgK: 100, frame: '없음', theme: 'ns', font: '', motion: 'pop', dur: 20, lbar: 'full', feel: '보통', key: '#f40013', fx: [], hist: [], seed: 1,
+  text: '', texts: {}, fmt: '하드필러', head: '', foot: '', dan: '', imgK: 100, track: 0, lead: 100, frame: '없음', theme: 'ns', font: '', motion: 'pop', dur: 20, lbar: 'full', feel: '보통', key: '#f40013', fx: [], hist: [], seed: 1,
   scenes: [], total: 0, assets: {}, bgm: null,
   t: 0, playing: false, sel: -1, dirty: true, errors: [],
 };
-const proj = () => ({ fmt: S.fmt, head: S.head, foot: S.foot, dan: S.dan, imgK: S.imgK, frame: S.frame, fx: S.fx, key: S.key, feel: S.feel, scenes: S.scenes, theme: S.theme, font: S.font || null, motion: S.motion, lbar: S.lbar, total: S.total, assets: S.assets, bgm: S.bgm });
+const proj = () => ({ fmt: S.fmt, head: S.head, foot: S.foot, dan: S.dan, imgK: S.imgK, track: S.track, lead: S.lead, frame: S.frame, fx: S.fx, key: S.key, feel: S.feel, scenes: S.scenes, theme: S.theme, font: S.font || null, motion: S.motion, lbar: S.lbar, total: S.total, assets: S.assets, bgm: S.bgm });
 
 // ---------- 초기화 ----------
 const tplFmt = t => t.fmt || fmtOfText(t.text);
@@ -19,17 +19,22 @@ function init() {
   for (const [k, v] of Object.entries(MOTIONS)) $('motionSel').add(new Option(k, v));
   buildTplSel();
   for (const [id, b] of Object.entries(BLOCKS)) {
+    if (id === 'benefits') continue; // 혜택 장면은 v7에서 뺌 (예전 스토리보드는 그대로 읽힘)
     const btn = document.createElement('button'); btn.textContent = '+ ' + b.name; btn.title = b.help;
     btn.onclick = () => insertLine(b.sample); $('blockChips').appendChild(btn);
   }
   // 가이드 이미지
   if (typeof LBAR_DATA !== 'undefined') { const i = new Image(); i.onload = () => { R.lbarImg = i; S.dirty = true; }; i.src = LBAR_DATA; }
   let saved = null; try { saved = JSON.parse(localStorage.getItem('hfm.v1') || 'null'); } catch (_) { }
-  if (saved && saved.texts) S.texts = saved.texts;
-  $('sb').value = saved ? ((saved.fmt && S.texts[saved.fmt]) || saved.text || TEMPLATES[0].text) : TEMPLATES[0].text;
-  loadForm(saved && saved.form ? saved.form : { product: '마데카 크림', hook: '', price: '76090', pricePre: '단,', priceNote: '(모바일 10% 할인 시)', benefits: ['무이자 6개월', '사은품 쇼핑백 증정'], points: ['피부 장벽 강화', '끈적임 없는 흡수'], urgent: '', comps: [{ name: '크림 50ml', img: '상품1', qty: '10' }, { name: '방송 단독 1통 더', img: '상품1', qty: '1' }] });
+  // 처음엔 예시 없이 빈 화면에서 시작. 예전 버전이 깔아 둔 예시(손대지 않은 것)는 지움
+  const isTpl = t => !t || TEMPLATES.some(x => x.text.trim() === String(t).trim());
+  if (saved && saved.texts) for (const [k, v] of Object.entries(saved.texts)) if (!isTpl(v)) S.texts[k] = v;
+  const fmt0 = saved && FORMATS[saved.fmt] ? saved.fmt : '하드필러';
+  $('sb').value = S.texts[fmt0] || (saved && !isTpl(saved.text) && fmtOfText(saved.text) === fmt0 ? saved.text : blankText(fmt0));
+  const oldDemo = f => f && f.product === '마데카 크림' && f.price === '76090' && (f.comps || [])[0] && f.comps[0].name === '크림 50ml';
+  loadForm(saved && saved.form && !oldDemo(saved.form) ? saved.form : {});
   try { $('aiKey').value = localStorage.getItem('hfm.key') || ''; } catch (_) { }
-  bindUI(); bindQuick(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow();
+  bindUI(); bindQuick(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('build');
   $('appVer').textContent = 'v' + APP_VERSION + (APP ? ' · 윈도우 앱' : '');
   if (APP) { document.body.classList.add('app'); APP.info().then(i => { APP_INFO = i; }).catch(() => { }); }
   loadFonts().then(() => { S.dirty = true; lastWarnKey = ''; buildDesignDDs(); thumbsSoon(); });
@@ -38,6 +43,12 @@ function init() {
   window.addEventListener('error', e => { if (e.message && !/ResizeObserver/.test(e.message)) toast('문제가 생겼어요: ' + e.message); });
   window.addEventListener('unhandledrejection', e => { const m = e.reason && e.reason.message; if (m) toast('문제가 생겼어요: ' + m); });
   requestAnimationFrame(loop);
+}
+// 빈 스토리보드: 설정 첫 줄만 (테마는 지금 고른 것 유지)
+function blankText(fmt) {
+  const s = { 형식: fmt, 테마: (THEMES[S.theme] || THEMES.ns).name, 길이: String(FORMATS[fmt].dur) };
+  if (fmt !== '통강조') s.L바 = LBAR_LABEL[FORMATS[fmt].lbar];
+  return serializeSettings(s);
 }
 function buildTplSel() {
   const sel = $('tplSel'); sel.innerHTML = ''; sel.add(new Option('📂 예시 스토리보드 불러오기…', ''));
@@ -70,9 +81,9 @@ function projFromText(text) {
   const fmt = FORMATS[st.형식] ? st.형식 : '하드필러';
   const p = { scenes: r.scenes, theme: themeFromName(st.테마) || 'ns', font: fontFromName(st.폰트) || null, motion: MOTIONS[st.모션] || 'pop',
     lbar: LBAR_NAMES[st.L바] || FORMATS[fmt].lbar, feel: FEEL_NAMES.includes(st.느낌) ? st.느낌 : '보통', key: /^#[0-9a-f]{6}$/i.test(st.키컬러 || '') ? st.키컬러 : S.key,
-    fx: parseFxList(st.효과), assets: S.assets, bgm: S.bgm, fmt, head: st.머리 || '', foot: st.꼬리 || '', dan: st.단서 || '', imgK: parseFloat(st.이미지크기) || 100, frame: TONG_FRAMES.includes(st.틀) ? st.틀 : '없음' };
+    fx: parseFxList(st.효과), assets: S.assets, bgm: S.bgm, fmt, head: st.머리 || '', foot: st.꼬리 || '', dan: st.단서 || '', imgK: parseFloat(st.이미지크기) || 100, track: parseFloat(st.자간) || 0, lead: parseFloat(st.행간) || 100, frame: TONG_FRAMES.includes(st.틀) ? st.틀 : '없음' };
   if (fmt === '통강조') p.lbar = 'tong';
-  p.total = computeTimeline(p.scenes, parseFloat(st.길이) || FORMATS[fmt].dur).total; return p;
+  p.total = computeTimeline(p.scenes, Math.min(FORMATS[fmt].max, parseFloat(st.길이) || FORMATS[fmt].dur)).total; return p;
 }
 
 // ---------- 스타일 갤러리 · 폰트 · 효과 ----------
@@ -186,14 +197,14 @@ const FORM_IDS = { tongHead: 'fTongHead', tongFoot: 'fTongFoot', dan: 'fDan', pr
 let formComps = [{ name: '', img: '', qty: '' }];
 function readForm() {
   const f = {}; for (const [k, id] of Object.entries(FORM_IDS)) f[k] = $(id).value.trim();
-  f.benefits = $('fBenefits').value.split('\n').map(s => s.trim()).filter(Boolean);
+  f.benefits = [];
   f.points = $('fPoints').value.split('\n').map(s => s.trim()).filter(Boolean);
   f.comps = formComps.filter(c => c.name.trim()); f.perScene = $('fPerScene').checked; return f;
 }
 function loadForm(f) {
   if (!f) return;
   for (const [k, id] of Object.entries(FORM_IDS)) if (f[k] != null) $(id).value = f[k];
-  $('fBenefits').value = (f.benefits || []).join('\n'); $('fPoints').value = (f.points || []).join('\n'); if (f.perScene === false) $('fPerScene').checked = false;
+  $('fPoints').value = (f.points || []).join('\n'); if (f.perScene === false) $('fPerScene').checked = false;
   if (f.comps && f.comps.length) formComps = f.comps.map(c => Object.assign({ name: '', img: '', qty: '' }, c));
 }
 function renderComps() {
@@ -321,7 +332,7 @@ async function batchExport() {
 function bindQuick() {
   renderComps();
   $('fAddComp').onclick = () => { formComps.push({ name: '', img: '', qty: '' }); renderComps(); };
-  [...Object.values(FORM_IDS), 'fBenefits', 'fPoints'].forEach(id => $(id).addEventListener('input', persist));
+  [...Object.values(FORM_IDS), 'fPoints'].forEach(id => $(id).addEventListener('input', persist));
   [...Object.values(FORM_IDS), 'fUnit'].forEach(id => $(id).addEventListener('input', updateCalc));
   $('fPerScene').onchange = persist; updateCalc();
   // 단서 자막은 바로 화면에 반영 (스토리보드 첫 줄 '단서:')
@@ -342,6 +353,7 @@ function parseNow() {
   S.fmt = st.형식 && FORMATS[st.형식] ? st.형식 : '하드필러';
   S.head = st.머리 || ''; S.foot = st.꼬리 || ''; S.frame = TONG_FRAMES.includes(st.틀) ? st.틀 : '없음';
   S.dan = st.단서 || ''; S.imgK = clamp(parseFloat(st.이미지크기) || 100, 30, 300);
+  S.track = clamp(parseFloat(st.자간) || 0, -20, 60); S.lead = clamp(parseFloat(st.행간) || 100, 50, 220);
   const th = themeFromName(st.테마); if (th) S.theme = th;
   if (st.길이 && !isNaN(parseFloat(st.길이))) S.dur = parseFloat(st.길이);
   if (S.fmt === '통강조') S.lbar = 'tong'; else if (st.L바 && LBAR_NAMES[st.L바]) S.lbar = LBAR_NAMES[st.L바]; else if (S.lbar === 'tong') S.lbar = FORMATS[S.fmt].lbar;
@@ -351,6 +363,7 @@ function parseNow() {
   S.fx = parseFxList(st.효과);
   if (/^#[0-9a-f]{6}$/i.test(st.키컬러 || '')) { const nk = st.키컬러.toLowerCase(); if (nk !== THEMES.key.hex) { S.key = nk; setKeyColor(nk); buildThemeGrid(); } S.key = nk; refreshKeyUI(); }
   S.scenes = r.scenes; S.errors = r.errors.slice();
+  const mx = FORMATS[S.fmt].max; if (S.dur > mx) { S.dur = mx; S.errors.push(`${S.fmt}는 최대 ${mx}초라서 ${mx}초로 맞췄어요.`); }
   const tl = computeTimeline(S.scenes, S.dur); S.total = tl.total;
   if (tl.total > S.dur + .01) S.errors.push(`고정 길이 합(${tl.fixedSum.toFixed(1)}초)이 전체 길이보다 길어서 ${tl.total.toFixed(1)}초가 됐어요.`);
   // 없는 이미지 이름 알림
@@ -359,7 +372,7 @@ function parseNow() {
   if (missing.size) S.errors.push(`아직 올리지 않은 이미지: ${[...missing].join(', ')} ('🖼 소스' 탭에서 올리고 이름을 맞춰 주세요. 없으면 자리 표시로 나와요.)`);
   $('errs').textContent = S.errors.join('\n');
   $('sceneCount').textContent = `${S.scenes.length}장면 · ${S.total.toFixed(1)}초`;
-  syncControls(); buildTimeline(); if (S.sel >= S.scenes.length) S.sel = -1; buildInspector(); thumbsSoon(); fontsSoon();
+  syncControls(); buildTimeline(); if (S.sel >= S.scenes.length) S.sel = -1; buildInspector(); buildStack(); thumbsSoon(); fontsSoon();
   S.t = Math.min(S.t, S.total); S.dirty = true; persist();
 }
 
@@ -373,24 +386,22 @@ function syncControls() {
   if (DD.ddTheme) DD.ddTheme.set(S.theme); if (DD.ddFont) DD.ddFont.set(S.font || ''); if (DD.ddStyle) DD.ddStyle.set($('fTheme').value || '');
   $('feelSel').value = S.feel; $('motionSel').value = S.motion; $('lbarSel').value = tong ? 'full' : S.lbar; $('frameSel').value = S.frame || '없음';
   [...$('fxGlobal').children].forEach(b => b.classList.toggle('on', S.fx.includes(b.dataset.n)));
+  const mx = FORMATS[S.fmt].max; $('durRange').max = mx; $('durNum').max = mx; $('durRange').min = tong ? 3 : 5;
   $('durRange').value = S.dur; $('durNum').value = S.dur;
+  $('trackK').value = S.track; $('trackKv').textContent = S.track; $('leadK').value = S.lead; $('leadKv').textContent = S.lead + '%';
+  if (palFmt !== (tong ? 'tong' : 'wide')) buildPalette();
   if (document.activeElement !== $('fDan')) $('fDan').value = S.dan || '';
   $('imgK').value = S.imgK; $('imgKv').textContent = S.imgK + '%';
   $('fmtBadge').textContent = S.fmt; $('lbarLbl').textContent = tong ? 'L바에 넣어 보기' : 'L바 보기';
   $('thumbs').classList.toggle('tall', tong); updateStyleNow();
 }
-// 형식 탭 바꾸기: 탭마다 스토리보드를 따로 기억. 처음 여는 탭은 간편 입력 내용으로 새로 만들거나 예시를 불러옴
+// 형식 탭 바꾸기: 탭마다 스토리보드를 따로 기억. 처음 여는 탭은 빈 화면
 function switchFormat(v) {
   if (!FORMATS[v] || v === S.fmt) return;
   S.texts[S.fmt] = $('sb').value;
-  let text = S.texts[v], made = false;
-  if (!text) {
-    const f = formData(); f.fmt = v; f.dur = FORMATS[v].dur;
-    if (f.product || f.price || f.listPrice || f.comps.length) { text = directFor(f, S.seed); made = true; }
-    else { const t = TEMPLATES.find(x => tplFmt(x) === v); text = t ? t.text : `형식: ${v}`; }
-  }
+  const text = S.texts[v] || blankText(v); // 처음 여는 탭은 빈 화면 (예시·자동 연출은 원할 때만)
   VARS = []; renderVariants();
-  setText(text, `${v} 탭${made ? ' · 간편 입력 내용으로 새로 만들었어요' : '으로 바꿨어요'}`);
+  setText(text, `${v} 탭으로 바꿨어요`);
   if (S.scenes[0] && !S.playing) { S.t = Math.min(1.4, S.scenes[0].dur * .6); S.dirty = true; }
 }
 
@@ -400,6 +411,8 @@ function writeSettings() {
   if (S.fmt === '통강조') { if (S.head) s.머리 = S.head; if (S.foot) s.꼬리 = S.foot; if (S.frame && S.frame !== '없음') s.틀 = S.frame; }
   else { s.L바 = LBAR_LABEL[S.lbar]; if (S.dan) s.단서 = S.dan; }
   if (S.imgK !== 100) s.이미지크기 = String(S.imgK);
+  if (S.track) s.자간 = String(S.track);
+  if (S.lead !== 100) s.행간 = String(S.lead);
   if (S.theme === 'key') s.키컬러 = S.key;
   if (S.fx.length) s.효과 = S.fx.join('+');
   if (S.font) s.폰트 = FONTS[S.font].name.split(' ')[0];
@@ -466,15 +479,18 @@ function bindOpts(root, sc) {
 // 왼쪽: 선택한 장면의 문구·종류·길이·이미지·숫자
 function buildSceneText() {
   const card = $('sceneCard'), box = $('sceneText'), sc = S.scenes[S.sel];
-  if (!sc) { card.hidden = true; box.innerHTML = ''; return; }
+  if (!sc) { card.hidden = true; box.innerHTML = ''; box.dataset.i = ''; return; }
   card.hidden = false; $('scBadge').textContent = `${S.sel + 1}번 · ${BLOCK_LABEL[sc.type]}`;
+  // 문구를 쓰는 중이면 칸을 다시 만들지 않음 (커서가 튀지 않게)
+  if (box.dataset.i === String(S.sel) && document.activeElement && document.activeElement.id === 'iLines' && box.contains(document.activeElement)) return;
+  box.dataset.i = String(S.sel);
   const b = BLOCKS[sc.type], o = sc.opts, imgs = Object.keys(S.assets), hasImg = !!o.이미지 || sc.lines.some(l => l.includes('@'));
   box.innerHTML = `
     <div class="row2">
-      <div class="field"><label>장면 종류</label><select id="iType">${Object.entries(BLOCKS).map(([k, v]) => `<option value="${k}" ${k === sc.type ? 'selected' : ''}>${v.name}</option>`).join('')}</select></div>
+      <div class="field"><label>장면 종류</label><select id="iType">${Object.entries(BLOCKS).filter(([k]) => k !== 'benefits' || k === sc.type).map(([k, v]) => `<option value="${k}" ${k === sc.type ? 'selected' : ''}>${v.name}</option>`).join('')}</select></div>
       <div class="field"><label>길이 (초) <span class="dim">비우면 자동</span></label><input type="number" step="0.1" min="0.5" data-k="길이" value="${o.길이 || ''}" placeholder="${sc.dur.toFixed(1)}"></div>
     </div>
-    <div class="field"><label>문구 <span class="dim">한 줄 = 화면의 한 줄 · *강조*</span></label><textarea id="iLines">${sc.lines.join('\n').replace(/</g, '&lt;')}</textarea><span class="hint">${b.help}</span></div>
+    <div class="field"><label>문구 <span class="dim">한 줄 = 화면의 한 줄 · *강조*</span></label><textarea id="iLines" placeholder="${(LINE_GUIDE[sc.type] || '문구를 써 주세요').replace(/"/g, '&quot;')}">${sc.lines.join('\n').replace(/</g, '&lt;')}</textarea><span class="hint">${b.help}</span></div>
     <div class="row2">
       <div class="field"><label>이미지</label>${opt('이미지', imgs, o.이미지, '없음')}</div>
       ${hasImg ? `<div class="field"><label>이미지 크기 <span class="dim" id="iKv">${o.크기 || 100}%</span></label><input type="range" id="iK" min="40" max="220" step="5" value="${parseFloat(o.크기) || 100}"></div>` : ''}
@@ -482,7 +498,12 @@ function buildSceneText() {
     </div>
     <div class="inspActs"><button class="small" id="iUp">▲ 앞으로</button><button class="small" id="iDown">▼ 뒤로</button><button class="small" id="iDup">복제</button><button class="small" id="iDel">삭제</button><button class="small ghost" id="iClose">닫기</button></div>`;
   $('iType').onchange = e => { sc.type = e.target.value; sc.label = BLOCK_LABEL[sc.type]; writeScene(S.sel); };
-  $('iLines').onchange = e => { sc.lines = e.target.value.split('\n').map(s => s.trim()).filter(Boolean); writeScene(S.sel); };
+  // 쓰는 대로 바로 미리보기에 반영 (장면 데이터는 매번 새로 만들어지므로 항상 지금 선택된 장면에 씀)
+  const ta = $('iLines'); let typeT = 0;
+  const commit = () => { clearTimeout(typeT); const cur = S.scenes[S.sel]; if (!cur) return; const nl = ta.value.split('\n').map(s => s.trim()).filter(Boolean); if (nl.join('\n') === cur.lines.join('\n')) return; cur.lines = nl; writeScene(S.sel); };
+  ta.onfocus = () => { S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false; };
+  ta.oninput = () => { clearTimeout(typeT); typeT = setTimeout(commit, 220); };
+  ta.onchange = commit; ta.onblur = commit;
   bindOpts(box, sc);
   if ($('iK')) { $('iK').oninput = e => { const v = +e.target.value; $('iKv').textContent = v + '%'; if (v === 100) delete sc.opts.크기; else sc.opts.크기 = String(v); S.dirty = true; }; $('iK').onchange = () => writeScene(S.sel); }
   $('iUp').onclick = () => moveScene(S.sel, S.sel - 1); $('iDown').onclick = () => moveScene(S.sel, S.sel + 2);
@@ -490,9 +511,77 @@ function buildSceneText() {
   $('iDel').onclick = () => { const lines = $('sb').value.split('\n'); lines.splice(sc.lineNo, 1); $('sb').value = lines.join('\n'); S.sel = -1; parseNow(); };
   $('iClose').onclick = () => { S.sel = -1; buildInspector(); buildTimeline(); };
 }
+// 문구 칸이 비었을 때 보여 줄 예시 (장면 종류별)
+const LINE_GUIDE = {
+  typo: '지금 이 방송\n*채널고정!*', hook: '작은 문구\n*큰 문구*', impact: '방송에서만\n최|다|구|성  ( | 로 글자 분리)', product: '상품 소개 한 줄\n*상품명*',
+  points: '이래서 *잘 팔려요*\n특징 1\n특징 2', composition: '총 *11팩*\n크림 50ml @상품1 x10 + 미니 @상품1', price: '단,\n39,900원\n(카드 할인 시)',
+  counter: '누적 판매\n100,000개\n*돌파!*', list: '*이런 분께*\n바쁜 직장인\n자취생', badge: '방송 단독\n*역대급*', info: '상품 정보\n원산지: 국내산\n중량: 5kg',
+  urgent: '방송 끝나면\n*이 조건 불가능*', cta: '지금 바로\n*주문하세요!*', outro: '브랜드명 (로고 이미지는 이미지 칸에서)',
+};
+
+// ---------- 직접 만들기: 장면을 골라 쌓고 문구를 직접 씀 ----------
+const PALETTE = {
+  wide: [['typo', '타이포', '큰 글자 1~3줄'], ['hook', '훅 카피', '작은 문구 + 큰 문구'], ['impact', '강조', '분리·반복·기울임'], ['product', '상품', '상품 사진 + 문구'],
+    ['points', '포인트', '체크 표시 목록'], ['composition', '구성표', '구성품·수량'], ['price', '가격', '가격 공개·할인'], ['counter', '실적', '숫자 카운트업'],
+    ['list', '목록', '단어가 차례로'], ['badge', '배지', '별모양 스탬프'], ['info', '정보', '항목: 내용 표'], ['urgent', '한정', '마감·매진 임박'], ['cta', '마무리', '주문 한마디'], ['outro', '로고', '브랜드 엔딩']],
+  tong: [['typo', '타이포', '큰 글자'], ['hook', '훅 카피', '작은+큰 문구'], ['impact', '강조', '분리·반복'], ['product', '상품', '사진 + 문구'], ['badge', '배지', '스탬프'],
+    ['points', '포인트', '체크 목록'], ['price', '가격', '가격·할인'], ['composition', '구성표', '구성·수량'], ['info', '정보', '항목 표'], ['urgent', '한정', '마감 임박'], ['cta', '마무리', '주문 한마디']],
+};
+let palFmt = null, PANE = 'build';
+function buildPalette() {
+  palFmt = S.fmt === '통강조' ? 'tong' : 'wide';
+  $('palette').innerHTML = PALETTE[palFmt].map(([t, n, d]) => `<button data-t="${t}" title="${BLOCKS[t].help.replace(/"/g, '&quot;')}"><b>${n}</b><small>${d}</small></button>`).join('');
+}
+function addScene(type) {
+  const o = {};
+  if (type === 'product') { const a = Object.keys(S.assets).find(n => n !== '로고'); if (a) o.이미지 = a; }
+  if (type === 'outro' && S.assets['로고']) o.이미지 = '로고';
+  S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false;
+  $('sb').value = $('sb').value.replace(/\s*$/, '') + '\n' + serializeScene({ label: BLOCK_LABEL[type], lines: [], opts: o }).trim();
+  parseNow(); selectScene(S.scenes.length - 1);
+  if (S.fmt === '통강조' && S.scenes.length > 2) toast('통강조는 최대 8초라 장면 2개 정도가 알맞아요');
+  setTimeout(() => { const t = $('iLines'); if (t) { t.focus(); t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }, 30);
+}
+function fillStackItem(el, sc) {
+  el.querySelector('.ty').textContent = BLOCK_LABEL[sc.type];
+  const t = sceneText(sc), tx = el.querySelector('.tx'); tx.textContent = t || (sc.opts.이미지 ? `이미지: ${sc.opts.이미지}` : '문구를 써 주세요'); tx.classList.toggle('empty', !t && !sc.opts.이미지);
+  el.querySelector('.du').textContent = sc.dur.toFixed(1) + '초';
+}
+// 장면 목록: 구조(장면 수·종류·선택)가 그대로면 글자만 바꿔서, 문구를 쓰는 중에도 커서가 그대로 있게 함
+function buildStack() {
+  const box = $('stack'), card = $('sceneCard'), n = S.scenes.length;
+  $('stackCount').textContent = n ? `${n}장면 · ${S.total.toFixed(1)}초` : '';
+  const key = [S.fmt, S.sel, ...S.scenes.map(s => s.type)].join(',');
+  if (box.dataset.key === key) { [...box.querySelectorAll('.stItem')].forEach((el, i) => fillStackItem(el, S.scenes[i])); return; }
+  box.dataset.key = key;
+  if (card.parentNode === box) $('sceneHome').appendChild(card);
+  box.innerHTML = n ? '' : '<div class="stEmpty">아직 장면이 없어요.<br>위에서 장면 종류를 눌러 하나씩 쌓아 보세요.</div>';
+  S.scenes.forEach((sc, i) => {
+    const el = document.createElement('div'); el.className = 'stItem' + (i === S.sel ? ' sel' : ''); el.dataset.i = i;
+    el.innerHTML = '<span class="no">' + (i + 1) + '</span><span class="ty"></span><span class="tx"></span><span class="du"></span>';
+    fillStackItem(el, sc);
+    el.onclick = () => { if (S.sel === i) { S.sel = -1; buildInspector(); buildTimeline(); } else selectScene(i); };
+    box.appendChild(el);
+  });
+  placeSceneCard();
+}
+// 직접 만들기 탭에서는 선택한 장면 편집 칸을 목록 안(그 장면 바로 아래)에 펼침
+function placeSceneCard() {
+  const card = $('sceneCard'), home = $('sceneHome'), inBuild = PANE === 'build';
+  document.body.classList.toggle('paneBuild', inBuild);
+  const it = inBuild && $('stack').querySelector(`.stItem[data-i="${S.sel}"]`);
+  if (it) { if (it.nextSibling !== card) it.after(card); }
+  else if (card.parentNode !== home) home.appendChild(card);
+}
+function showPane(p) {
+  PANE = p;
+  [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.p === p));
+  document.querySelectorAll('.pane').forEach(n => n.classList.toggle('on', n.id === 'pane-' + p));
+  placeSceneCard();
+}
 // 오른쪽: 선택한 장면의 디자인 (배경·모션·전환·소품·효과)
 function buildInspector() {
-  buildSceneText();
+  buildSceneText(); buildStack();
   const box = $('insp'); const sc = S.scenes[S.sel];
   if (!sc) { box.innerHTML = '<div class="dim">장면 썸네일이나 타임라인을 누르면 여기서 그 장면의 배경·모션·전환·효과를 바꿀 수 있어요.</div>'; return; }
   const o = sc.opts, tong = S.fmt === '통강조';
@@ -504,12 +593,26 @@ function buildInspector() {
       <div class="field"><label>다음 장면 전환</label>${opt('전환', TRANSITIONS.slice(1), o.전환)}</div>
       <div class="field"><label>소품</label>${opt('소품', PROPS_LIST.filter(x => !(tong && x === 'TV')), o.소품, '기본')}</div>
       ${sc.type === 'impact' ? `<div class="field"><label>강조 스타일</label>${opt('스타일', ['분리', '반복', '기울임', '박스'], o.스타일)}</div>` : ''}
+      ${sc.type === 'typo' ? `<div class="field"><label>타이포 방식</label>${opt('스타일', ['쌓기', '교체'], o.스타일)}</div>` : ''}
       ${sc.type === 'product' && !tong ? `<div class="field"><label>이미지 위치</label>${opt('위치', ['좌', '우'], o.위치, '우')}</div>` : ''}
       <div class="field"><label>강조 색</label><input type="text" data-k="색" value="${o.색 || ''}" placeholder="테마 기본 (#ff0000)"></div>
       <div class="field"><label>강조박스</label><select data-k="강조박스"><option value="">끔</option><option ${o.강조박스 ? 'selected' : ''} value="켬">켬</option></select></div>
     </div>
+    <div class="row2">
+      <div class="field"><label>자간 <span class="dim" id="iTrv"></span></label><input type="range" id="iTr" min="-10" max="30" step="1"></div>
+      <div class="field"><label>행간 <span class="dim" id="iLdv"></span></label><input type="range" id="iLd" min="60" max="180" step="5"></div>
+    </div>
     <div class="field"><label>이 장면 효과 <span class="dim">(여러 개 가능)</span></label><div class="fxChips" id="iFx">${['없음', ...EFFECT_NAMES].map(n => `<button data-n="${n}" class="${(o.효과 || '').split('+').includes(n) ? 'on' : ''}">${n === '없음' ? '전체 효과 끄기' : n}</button>`).join('')}</div></div>`;
   bindOpts(box, sc);
+  // 자간·행간: 장면 값이 없으면 전체 값을 따름 (전체 값과 같게 돌려놓으면 장면 값은 지움)
+  const spc = (id, key, glob, unit) => {
+    const el = $(id), lab = $(id + 'v'), cur = () => S.scenes[S.sel];
+    const show = () => { const c = cur(); const own = c && c.opts[key] !== undefined; lab.textContent = (own ? c.opts[key] : glob()) + unit + (own ? '' : ' (전체)'); };
+    el.value = o[key] !== undefined ? o[key] : glob(); show();
+    el.oninput = () => { const c = cur(); if (!c) return; const v = +el.value; if (v === glob()) delete c.opts[key]; else c.opts[key] = String(v); show(); S.dirty = true; };
+    el.onchange = () => writeScene(S.sel);
+  };
+  spc('iTr', '자간', () => S.track, ''); spc('iLd', '행간', () => S.lead, '%');
   $('iFx').onclick = e => {
     const n = e.target.dataset.n; if (!n) return; let cur = (sc.opts.효과 || '').split('+').filter(Boolean);
     if (n === '없음') cur = cur.includes('없음') ? [] : ['없음']; else { cur = cur.filter(x => x !== '없음'); cur = cur.includes(n) ? cur.filter(x => x !== n) : [...cur, n]; }
@@ -555,8 +658,8 @@ async function buildThumbs() {
     d.ondrop = e => { e.preventDefault(); if (dragFrom < 0) return; const r = d.getBoundingClientRect(); const to = i + (e.clientX > r.left + r.width / 2 ? 1 : 0); const f = dragFrom; dragFrom = -1; moveScene(f, to); };
     box.appendChild(d); return c;
   });
-  const add = document.createElement('button'); add.className = 'thumbAdd'; add.textContent = '+ 장면'; add.title = '스토리보드 탭에서 장면 추가';
-  add.onclick = () => { $('tabs').querySelector('[data-p=board]').click(); $('blockChips').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+  const add = document.createElement('button'); add.className = 'thumbAdd'; add.textContent = '+ 장면'; add.title = '직접 만들기에서 장면 추가';
+  add.onclick = () => { showPane('build'); $('palette').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
   box.appendChild(add); markThumbs();
   for (let i = 0; i < cards.length; i++) {
     await new Promise(r => setTimeout(r, 0)); if (job !== thumbJob) return;
@@ -710,6 +813,7 @@ function showWarnings(list) {
     : `<div class="ok">✓ ${S.fmt === '통강조' ? '글자가 화면 안에 잘 들어가 있어요' : '이 화면은 L바와 겹치지 않아요'}</div>`;
 }
 function setPlaying(p) {
+  if (p && !S.scenes.length) { toast('먼저 장면을 하나 이상 만들어 주세요'); return; }
   S.playing = p; $('playBtn').textContent = p ? '⏸ 일시정지' : '▶ 재생'; if (p) { if (S.t >= S.total - .01) S.t = 0; restartAudio(); } else { stopAudio(); S.dirty = true; }
 }
 
@@ -775,6 +879,7 @@ function exportName(ext) {
   return `${S.fmt}_${first}_${S.total.toFixed(0)}초.${ext}`;
 }
 function openExport() {
+  if (!S.scenes.length) { toast('먼저 장면을 하나 이상 만들어 주세요'); showPane('build'); return; }
   const tong = S.fmt === '통강조';
   $('expInfo').textContent = `${S.fmt} · ${S.scenes.length}장면 · ${S.total.toFixed(2)}초 · ${tong ? '376×790 (L바 왼쪽 네모 크기)' : '1920×1080'}. 최신 Chrome/Edge에서 MP4(H.264)로 저장돼요. 렌더링에는 영상 길이의 1~3배 시간이 걸릴 수 있어요.`;
   $('expLbarRow').hidden = tong; $('ffBox').hidden = tong || !!APP; $('expMxfRow').hidden = tong || !APP || !APP_INFO.ffmpeg;
@@ -788,6 +893,8 @@ function openExport() {
   const amap = (S.bgm ? '-map "[a1]" -map "[a2]" ' : '') + '-map 1:a '.repeat(S.bgm ? 6 : 8);
   $('ffCmd').value = `ffmpeg -y -i "${name}" -f lavfi -t ${D} -i anullsrc=r=48000:cl=mono -filter_complex "${fc}" -map "[v]" ${amap}-frames:v ${N} -c:v mpeg2video -profile:v 0 -level:v 2 -pix_fmt yuv422p -b:v 50M -minrate 50M -maxrate 50M -bufsize 17825792 -rc_init_occupancy 17825792 -g 15 -bf 2 -flags +ildct+ilme -top 1 -dc 10 -intra_vlc 1 -non_linear_quant 1 -qmin 1 -qmax 12 -c:a pcm_s24le -ar 48000 -f mxf 출력.mxf`;
   $('ffCopy').onclick = () => { $('ffCmd').select(); document.execCommand('copy'); $('ffCopy').textContent = '복사했어요'; setTimeout(() => $('ffCopy').textContent = '명령 복사', 1500); };
+  const empties = S.scenes.map((sc, i) => sceneEmpty(sc) ? i + 1 : 0).filter(Boolean);
+  if (empties.length) $('expInfo').textContent += ` ⚠ ${empties.join('·')}번 장면은 문구가 비어 있어서 배경만 나와요.`;
   $('expProg').hidden = true; $('expMsg').textContent = ''; $('expDlg').showModal();
 }
 async function doExport() {
@@ -827,7 +934,13 @@ function bindUI() {
   $('frameSel').onchange = e => { S.frame = e.target.value; writeSettings(); };
   $('imgK').oninput = e => { S.imgK = +e.target.value; $('imgKv').textContent = S.imgK + '%'; S.dirty = true; };
   $('imgK').onchange = () => { writeSettings(); thumbsSoon(); };
-  $('tabs').onclick = e => { const p = e.target.dataset.p; if (!p) return; [...$('tabs').children].forEach(b => b.classList.toggle('on', b === e.target)); document.querySelectorAll('.pane').forEach(n => n.classList.toggle('on', n.id === 'pane-' + p)); };
+  $('tabs').onclick = e => { const p = e.target.dataset.p; if (p) showPane(p); };
+  $('palette').onclick = e => { const b = e.target.closest('button'); if (b && b.dataset.t) addScene(b.dataset.t); };
+  $('newBtn').onclick = () => { showPane('build'); if ($('sb').value.trim() === blankText(S.fmt)) return; setText(blankText(S.fmt), '빈 화면으로 새로 시작해요'); };
+  // 자간·행간 (전체)
+  $('trackK').oninput = e => { S.track = +e.target.value; $('trackKv').textContent = S.track; S.dirty = true; };
+  $('leadK').oninput = e => { S.lead = +e.target.value; $('leadKv').textContent = S.lead + '%'; S.dirty = true; };
+  $('trackK').onchange = $('leadK').onchange = () => { writeSettings(); thumbsSoon(); };
   $('undoBtn').onclick = undo; $('toastUndo').onclick = undo;
   const dropZone = (el, accept, fn) => {
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
@@ -840,7 +953,7 @@ function bindUI() {
   dropZone(document.querySelector('.canvasWrap'), 'image/', async f => { addAsset(nextAssetName(f.name), await fileToCanvas(f)); toast(`이미지 '${f.name}'를 올렸어요`); });
   $('motionSel').onchange = e => { S.motion = e.target.value; writeSettings(); };
   $('durRange').oninput = e => { S.dur = +e.target.value; $('durNum').value = S.dur; writeSettings(); };
-  $('durNum').onchange = e => { S.dur = +e.target.value || 20; writeSettings(); };
+  $('durNum').onchange = e => { S.dur = clamp(+e.target.value || FORMATS[S.fmt].dur, 1, FORMATS[S.fmt].max); writeSettings(); };
   $('lbarSel').onchange = e => { S.lbar = e.target.value; writeSettings(); };
   $('tplSel').onchange = e => { const t = TEMPLATES.find(x => x.id === e.target.value); if (t) setText(t.text, `'${t.name}' 예시를 불러왔어요`); e.target.value = ''; };
   ['lbarChk', 'safeChk', 'warnChk'].forEach(id => $(id).onchange = () => { S.dirty = true; lastWarnKey = ''; if (!$('warnChk').checked) $('warns').innerHTML = ''; });
@@ -864,7 +977,7 @@ function bindUI() {
   $('imgFile').onchange = async e => { for (const f of e.target.files) { const c = await fileToCanvas(f); addAsset(nextAssetName(f.name), c); } e.target.value = ''; };
   $('bgmFile').onchange = async e => { const f = e.target.files[0]; if (f) await loadBgm(f); e.target.value = ''; };
   $('pngBtn').onclick = () => {
-    const P = proj(); setStage(stageOf(P)); const [ow, oh] = STAGES[STAGE].out; const c = document.createElement('canvas'); c.width = W; c.height = H; renderFrame(c.getContext('2d'), P, S.t, { showLbar: $('lbarChk').checked && STAGE === 'wide' });
+    const P = proj(); setStage(stageOf(P)); const [ow, oh] = STAGES[STAGE].out; const c = document.createElement('canvas'); c.width = W; c.height = H; renderFrame(c.getContext('2d'), P, S.t, { showLbar: $('lbarChk').checked && STAGE === 'wide', hints: false });
     let o = c; if (ow !== W) { o = document.createElement('canvas'); o.width = ow; o.height = oh; const g = o.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(c, 0, 0, ow, oh); }
     o.toBlob(b => downloadBlob(b, `${S.fmt}_frame_${S.t.toFixed(2)}s.png`));
   };
