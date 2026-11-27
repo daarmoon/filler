@@ -1,9 +1,9 @@
-# 윈도우 설치 파일 자동 빌드: v로 시작하는 태그를 올리면(예: v6.0.0) 릴리스에 설치 파일이 붙어요.
+# 윈도우 설치 파일 자동 빌드: Releases에서 새 릴리스(예: 태그 v6.0.0)를 발행하면 설치 파일이 그 릴리스에 붙어요.
 # Actions 탭에서 "Run workflow"로 직접 돌리면 결과 파일을 Artifacts로 받을 수 있어요.
 name: Windows 빌드
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
 permissions:
   contents: write
@@ -28,8 +28,8 @@ jobs:
             release/*.exe
             release/*.zip
           if-no-files-found: error
-      - name: 릴리스에 올리기 (태그일 때만)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: 릴리스에 올리기 (릴리스를 발행했을 때만)
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: |

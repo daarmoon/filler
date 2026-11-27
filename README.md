@@ -64,7 +64,7 @@ npm test                # 화면·인서트·통강조 자동 테스트 (Playwri
 - `src/` 구성: core(텍스트 모션) · themes(배경) · effects(꾸미기) · props(소품) · blocks(씬) · tong(통강조) · storyboard(파서) · insert(인서트 타이포·효과·테마) · director(자동 연출) · render(합성·L바) · imageproc · export · templates · app(UI)
 
 ### GitHub에 올렸을 때
-- `.github/workflows/build.yml`: `v6.0.0` 처럼 v로 시작하는 태그를 올리면 윈도우에서 설치 파일을 빌드해 릴리스에 붙입니다. Actions 탭의 "Run workflow"로 직접 돌릴 수도 있습니다.
+- `.github/workflows/build.yml`: Releases에서 새 릴리스(예: 태그 `v6.0.0`)를 발행하면 윈도우에서 설치 파일을 빌드해 그 릴리스에 붙입니다. Actions 탭의 "Run workflow"로 직접 돌리면 Artifacts로 받을 수 있습니다.
 - `.github/workflows/pages.yml`: main 브랜치에 올릴 때마다 웹 버전을 GitHub Pages(https://daarmoon.github.io/filler/)로 배포합니다. 처음 한 번은 저장소 Settings → Pages → Source를 "GitHub Actions"로 바꿔야 합니다.
 
 ### 포함한 외부 코드
