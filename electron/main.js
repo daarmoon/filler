@@ -1,9 +1,11 @@
-// ===== 윈도우 앱(Electron) 본체: dist/hardfiller-maker.html 을 창으로 열고, 파일 저장·MXF 변환을 맡음 =====
+// ===== 윈도우 앱(Electron) 본체 (필러메이커스, 예전 이름 하드필러 메이커): dist/hardfiller-maker.html 을 창으로 열고, 파일 저장·MXF 변환을 맡음 =====
 const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
 const path = require('path'); const fs = require('fs'); const os = require('os'); const { spawn } = require('child_process');
 
 const TEST_DIR = process.env.HFM_TEST_SAVE_DIR || ''; // 자동 테스트용: 저장 창 없이 이 폴더에 저장
 let win = null;
+// v9에서 앱 이름을 '필러메이커스'로 바꿨지만, 예전 설정·저장한 이미지가 그대로 남도록 예전 데이터 폴더를 계속 씀
+try { app.setPath('userData', path.join(app.getPath('appData'), '하드필러 메이커')); } catch (_) { }
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 const loadSettings = () => { try { return JSON.parse(fs.readFileSync(settingsFile(), 'utf8')); } catch (_) { return {}; } };
 const saveSettings = s => { try { fs.writeFileSync(settingsFile(), JSON.stringify(s, null, 1)); } catch (_) { } };
@@ -23,7 +25,7 @@ function ffmpegPath() {
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 1600, height: 960, minWidth: 1180, minHeight: 720, show: false, backgroundColor: '#f6f6f8', title: '하드필러 메이커',
+    width: 1600, height: 960, minWidth: 1180, minHeight: 720, show: false, backgroundColor: '#f6f6f8', title: '필러메이커스',
     icon: path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true, spellcheck: false },
   });
@@ -38,7 +40,7 @@ const menu = Menu.buildFromTemplate([
   { label: '파일', submenu: [{ label: '저장 폴더 열기', click: () => shell.openPath(defaultDir()) }, { type: 'separator' }, { role: 'quit', label: '끝내기' }] },
   { label: '편집', submenu: [{ role: 'undo', label: '실행 취소' }, { role: 'redo', label: '다시 실행' }, { type: 'separator' }, { role: 'cut', label: '잘라내기' }, { role: 'copy', label: '복사' }, { role: 'paste', label: '붙여넣기' }, { role: 'selectAll', label: '모두 선택' }] },
   { label: '보기', submenu: [{ role: 'reload', label: '새로고침' }, { role: 'resetZoom', label: '원래 크기' }, { role: 'zoomIn', label: '크게' }, { role: 'zoomOut', label: '작게' }, { type: 'separator' }, { role: 'togglefullscreen', label: '전체 화면' }, { role: 'toggleDevTools', label: '개발자 도구' }] },
-  { label: '도움말', submenu: [{ label: `하드필러 메이커 ${app.getVersion()}`, enabled: false }, { label: 'ffmpeg 위치: ' + (ffmpegPath() ? '들어 있음' : '없음 (MXF 변환 불가)'), enabled: false }] },
+  { label: '도움말', submenu: [{ label: `필러메이커스 ${app.getVersion()}`, enabled: false }, { label: 'ffmpeg 위치: ' + (ffmpegPath() ? '들어 있음' : '없음 (MXF 변환 불가)'), enabled: false }] },
 ]);
 
 // ---------- 렌더러가 부르는 기능 ----------

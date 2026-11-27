@@ -33,8 +33,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.screenshot({ path: `${out}/ui_wide.png` });
   const wideText = await page.inputValue('#sb');
   // 통강조 탭 (v8: 썸네일을 누르면 직접 만들기로 넘어가서 자동 연출로 돌아옴)
-  await page.click('#tabs button[data-p="quick"]');
-  await page.click('#fmtSeg button[data-v="통강조"]'); await page.waitForTimeout(600); await page.click('#dirBtn'); await page.waitForTimeout(800);
+  // v9: 통강조는 전용 화면의 ⚡ 자동으로 채우기
+  await page.click('#fmtSeg button[data-v="통강조"]'); await page.waitForTimeout(600); await page.click('#tqGo'); await page.waitForTimeout(800);
   const tb = await page.$eval('#canvasWrap', el => { const r = el.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height), (r.width / r.height).toFixed(3)]; });
   console.log('tong canvasWrap', tb, 'cv', await page.evaluate(() => [cv.width, cv.height]), 'tag', await page.textContent('#sizeTag'));
   console.log('tong head:', (await page.inputValue('#sb')).split('\n')[0]);
@@ -52,9 +52,9 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.screenshot({ path: `${out}/ui_tong_inset.png` });
   await page.uncheck('#lbarChk'); await page.waitForTimeout(300);
   // 여러 버전
-  await page.click('#multiBtn'); await page.waitForTimeout(4000);
+  await page.evaluate(() => $('multiBtn').click()); await page.waitForTimeout(4000); // 통강조 화면에는 버튼이 없어 함수만 확인
   console.log('variants', await page.evaluate(() => VARS.map(v => v.name + '/' + (v.text.match(/형식: (\S+)/) || [])[1])));
-  await page.locator('#variants').scrollIntoViewIfNeeded(); await page.screenshot({ path: `${out}/ui_tong_variants.png` });
+  await page.screenshot({ path: `${out}/ui_tong_variants.png` });
   // 형식 왕복: 하드필러 글이 남아있는지
   await page.click('#fmtSeg button[data-v="하드필러"]'); await page.waitForTimeout(600);
   console.log('wide text restored:', (await page.inputValue('#sb')) === wideText, 'cv', await page.evaluate(() => [cv.width, cv.height]));

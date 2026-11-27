@@ -1,7 +1,7 @@
 {
   "name": "hardfiller-maker",
-  "productName": "하드필러 메이커",
-  "version": "8.0.0",
+  "productName": "필러메이커스",
+  "version": "9.0.0",
   "description": "홈쇼핑 하드필러·오프닝필러·인서트·통강조 영상을 스토리보드로 만드는 도구 (윈도우 앱 / 브라우저)",
   "main": "electron/main.js",
   "author": "hardfiller-maker",
@@ -12,7 +12,7 @@
     "start": "node scripts/build.js && electron .",
     "ffmpeg:win": "node scripts/fetch-ffmpeg.js win32-x64",
     "dist:win": "node scripts/build.js && node scripts/fetch-ffmpeg.js win32-x64 && electron-builder --win --x64 --publish never",
-    "test": "node test/ui9.js && node test/ui8.js && node test/ui7.js && node test/ui6.js && node test/insert.js && node test/tong.js",
+    "test": "node test/ui10.js && node test/ui9.js && node test/ui8.js && node test/ui7.js && node test/ui6.js && node test/insert.js && node test/tong.js",
     "dist:win:noinstaller": "node scripts/build.js && node scripts/fetch-ffmpeg.js win32-x64 && electron-builder --win portable zip --x64 --publish never"
   },
   "devDependencies": {
@@ -21,8 +21,8 @@
   },
   "build": {
     "appId": "kr.hardfiller.maker",
-    "productName": "하드필러 메이커",
-    "artifactName": "HardfillerMaker-${version}-${arch}.${ext}",
+    "productName": "필러메이커스",
+    "artifactName": "FillerMakers-${version}-${arch}.${ext}",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -69,14 +69,14 @@
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "하드필러 메이커",
-      "artifactName": "HardfillerMaker-Setup-${version}.${ext}",
+      "shortcutName": "필러메이커스",
+      "artifactName": "FillerMakers-Setup-${version}.${ext}",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "language": "1042"
     },
     "portable": {
-      "artifactName": "HardfillerMaker-Portable-${version}.${ext}"
+      "artifactName": "FillerMakers-Portable-${version}.${ext}"
     },
     "linux": {
       "target": "dir",

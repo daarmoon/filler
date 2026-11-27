@@ -195,22 +195,27 @@ function drawDisclaimer(ctx, proj, sc) {
   const d = danFor(proj, sc); if (!d) return;
   let [title, body] = d.includes('|') ? d.split('|').map(s => s.trim()) : ['', d];
   if (!body) { body = title; title = ''; }
-  if (STAGE === 'tong') { drawTongDisclaimer(ctx, proj, title, body); return; }
+  const bg = danBgFor(proj, sc);
+  if (STAGE === 'tong') { drawTongDisclaimer(ctx, proj, title, body, bg); return; }
   const x = proj.lbar === 'none' ? 110 : 463, yB = proj.lbar === 'none' ? H - 70 : 943;
-  ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  if (title) { ctx.font = `900 30px ${SUBFONT.family}`; ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 5; ctx.lineJoin = 'round'; ctx.strokeText(title, x, yB - 36); ctx.fillText(title, x, yB - 36); }
-  ctx.font = `500 22px ${SUBFONT.family}`; const w = Math.min(ctx.measureText(body).width + 18, 830);
-  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x - 6, yB - 15, w, 30); ctx.fillStyle = '#ffffff';
-  ctx.save(); ctx.beginPath(); ctx.rect(x - 6, yB - 16, w, 32); ctx.clip(); ctx.fillText(body, x + 3, yB + 1); ctx.restore();
+  danText(ctx, title, body, x, yB, { tS: 30, tW: 5, tGap: 36, bS: 22, bH: 30, maxW: 830, pad: 9 }, bg);
+}
+// 단서 글자: 배경 있음 = 반투명 검은 띠 위 흰 글씨 / 없음 = 흰 글씨 + 검은 테두리 (어떤 배경에서도 읽히게)
+function danText(ctx, title, body, x, yB, m, bg) {
+  ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.miterLimit = 2;
+  if (title) { ctx.font = `900 ${m.tS}px ${SUBFONT.family}`; ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = bg ? 'rgba(0,0,0,.55)' : '#000'; ctx.lineWidth = bg ? m.tW : m.tW * 1.3; ctx.strokeText(title, x, yB - m.tGap, m.maxW); ctx.fillText(title, x, yB - m.tGap, m.maxW); }
+  ctx.font = `${bg ? 500 : 700} ${m.bS}px ${SUBFONT.family}`; const w = Math.min(ctx.measureText(body).width + m.pad * 2, m.maxW + m.pad);
+  if (bg) {
+    ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x - m.pad * .7, yB - m.bH / 2, w, m.bH); ctx.fillStyle = '#ffffff';
+    ctx.save(); ctx.beginPath(); ctx.rect(x - m.pad * .7, yB - m.bH / 2 - 1, w, m.bH + 2); ctx.clip(); ctx.fillText(body, x + m.pad * .35, yB + 1); ctx.restore();
+  } else {
+    ctx.strokeStyle = '#000'; ctx.lineWidth = Math.max(3, m.bS * .22); ctx.fillStyle = '#ffffff';
+    ctx.strokeText(body, x, yB + 1, m.maxW); ctx.fillText(body, x, yB + 1, m.maxW);
+  }
   ctx.restore();
 }
 // 통강조: 아래 띠(꼬리) 바로 위에 작게 (영상 크기 376×790 기준 약 13px)
-function drawTongDisclaimer(ctx, proj, title, body) {
+function drawTongDisclaimer(ctx, proj, title, body, bg = true) {
   const yB = H - (proj.foot ? TONG.foot : 0) - 52, x = 60, maxW = W - 120;
-  ctx.save(); ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-  if (title) { ctx.font = `900 50px ${SUBFONT.family}`; ctx.fillStyle = '#ff5a1f'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.lineWidth = 8; ctx.lineJoin = 'round'; ctx.strokeText(title, x, yB - 62, maxW); ctx.fillText(title, x, yB - 62, maxW); }
-  ctx.font = `500 38px ${SUBFONT.family}`; const w = Math.min(ctx.measureText(body).width + 28, maxW + 12);
-  ctx.fillStyle = 'rgba(0,0,0,.62)'; ctx.fillRect(x - 8, yB - 26, w, 52); ctx.fillStyle = '#ffffff';
-  ctx.save(); ctx.beginPath(); ctx.rect(x - 8, yB - 27, w, 54); ctx.clip(); ctx.fillText(body, x + 6, yB + 1); ctx.restore();
-  ctx.restore();
+  danText(ctx, title, body, x, yB, { tS: 50, tW: 8, tGap: 62, bS: 38, bH: 52, maxW, pad: 14 }, bg);
 }

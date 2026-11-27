@@ -99,7 +99,7 @@ async function exportVideo(proj, opt, onProgress) {
 
 // 저장: 윈도우 앱이면 저장 창(마지막 폴더 기억), 브라우저면 다운로드. 앱에서는 저장한 경로를 돌려줌
 const APP = (typeof window !== 'undefined' && window.hfm && window.hfm.isApp) ? window.hfm : null;
-const SAVE_FILTERS = { mp4: [{ name: 'MP4 영상', extensions: ['mp4'] }], webm: [{ name: 'WebM 영상', extensions: ['webm'] }], png: [{ name: 'PNG 이미지', extensions: ['png'] }], json: [{ name: '하드필러 프로젝트', extensions: ['json'] }] };
+const SAVE_FILTERS = { mp4: [{ name: 'MP4 영상', extensions: ['mp4'] }], webm: [{ name: 'WebM 영상', extensions: ['webm'] }], png: [{ name: 'PNG 이미지', extensions: ['png'] }], json: [{ name: '필러메이커스 프로젝트', extensions: ['json'] }] };
 async function downloadBlob(blob, name) {
   if (APP) return APP.saveFile(name, await blob.arrayBuffer(), SAVE_FILTERS[(name.split('.').pop() || '').toLowerCase()]);
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;

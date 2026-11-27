@@ -22,6 +22,8 @@ function layer(i) {
 // 통강조: 머리(위 고정 띠)·꼬리(아래 고정 띠)를 뺀 나머지가 장면 영역
 const TONG = { pad: 80, head: 270, foot: 300, gap: 70, dan: 150 };
 // 단서 자막: 장면에 따로 쓴 게 있으면 그것, 없으면 전체(첫 줄 '단서:'). '없음'이면 그 장면은 안 보임
+// 단서 자막 글자 배경: 장면 옵션 {단서배경: 있음|없음} > 설정 줄 '단서배경: 없음' > 기본(검은 띠)
+function danBgFor(proj, sc) { const o = sc && sc.opts && sc.opts.단서배경; if (o === '있음') return true; if (o === '없음') return false; return proj.danBg !== false; }
 function danFor(proj, sc) {
   const own = sc && sc.opts && sc.opts.단서 !== undefined ? String(sc.opts.단서).trim() : null;
   const v = own !== null && own !== '' ? own : String(proj.dan || '').trim();
@@ -57,12 +59,59 @@ function sceneFx(proj, sc) {
   const own = sc.opts.효과; if (own === '없음') return [];
   return [...new Set([...(proj.fx || []), ...parseFxList(own)])];
 }
-function runFx(ctx, list, layer, t, e) { for (const n of list) { const f = EFFECTS[n]; if (f && f.layer === layer) { ctx.save(); try { f.fn(ctx, t, e.lt, e); } catch (err) { console.warn(n, err); } ctx.restore(); } } }
+// 전체 효과 옵션(위치·속도·반복)은 renderScene이 장면마다 FX_OPT에 넣어 둠
+let FX_OPT = {}, FX_TOTAL = 20;
+// 반복 N번: 영상 길이를 N칸으로 나눠 칸마다 한 번씩 (효과 시간은 그때마다 처음부터)
+function fxWindow(o, t) {
+  const N = o.rep | 0; if (!N) return { start: null, a: 1, k: 0 };
+  const seg = FX_TOTAL / N, len = clamp(seg * .72, 1.2, 4.5), k = Math.min(N - 1, Math.floor(t / seg)), ws = k * seg + Math.min(.15, seg * .05), we = ws + len;
+  if (t < ws || t > we) return null;
+  return { start: ws, a: clamp(Math.min((t - ws) / .25, (we - t) / .35)), k };
+}
+function fxMask(g, pos, e) {
+  const A = e.A, f = Math.max(60, Math.min(A.w, A.h) * .12);
+  if (pos === '가운데') { const r = Math.min(A.w, A.h) * .62; const gr = g.createRadialGradient(A.cx, A.cy, r * .35, A.cx, A.cy, r); gr.addColorStop(0, '#000'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, H); return; }
+  const vert = pos === '위' || pos === '아래', mid = vert ? A.y + A.h / 2 : A.x + A.w / 2, len = vert ? H : W;
+  const gr = vert ? g.createLinearGradient(0, 0, 0, H) : g.createLinearGradient(0, 0, W, 0);
+  const a = clamp((mid - f) / len), b = clamp((mid + f) / len), first = pos === '위' || pos === '왼쪽';
+  gr.addColorStop(0, first ? '#000' : 'rgba(0,0,0,0)'); gr.addColorStop(a, first ? '#000' : 'rgba(0,0,0,0)'); gr.addColorStop(b, first ? 'rgba(0,0,0,0)' : '#000'); gr.addColorStop(1, first ? 'rgba(0,0,0,0)' : '#000');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+}
+function fxClip(ctx, pos, e) {
+  const A = e.A; ctx.beginPath();
+  if (pos === '위') ctx.rect(0, 0, W, A.y + A.h / 2); else if (pos === '아래') ctx.rect(0, A.y + A.h / 2, W, H);
+  else if (pos === '왼쪽') ctx.rect(0, 0, A.x + A.w / 2, H); else if (pos === '오른쪽') ctx.rect(A.x + A.w / 2, 0, W, H);
+  else ctx.ellipse(A.cx, A.cy, A.w * .4, A.h * .45, 0, 0, TAU);
+  ctx.clip();
+}
+function runFx(ctx, list, layerName, t, e) {
+  for (const n of list) {
+    const f = EFFECTS[n]; if (!f || f.layer !== layerName) continue;
+    const o = FX_OPT[n];
+    if (!o) { ctx.save(); try { f.fn(ctx, t, e.lt, e); } catch (err) { console.warn(n, err); } ctx.restore(); continue; }
+    const w = fxWindow(o, t); if (!w) continue;
+    const sp = o.speed || 1, tt = w.start === null ? t * sp : (t - w.start) * sp + w.k * 7.3, lt = w.start === null ? e.lt * sp : (t - w.start) * sp;
+    const pos = o.pos && o.pos !== '전체' ? o.pos : null;
+    try {
+      if (layerName === 'post' || (!pos && w.a >= 1)) {
+        ctx.save(); if (pos) fxClip(ctx, pos, e); if (w.a < 1) ctx.globalAlpha = w.a; f.fn(ctx, tt, lt, e); ctx.restore();
+      } else {
+        const off = layer(5), g = off.getContext('2d'); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, W, H);
+        g.save(); f.fn(g, tt, lt, e); g.restore();
+        if (pos) { g.save(); g.globalCompositeOperation = 'destination-in'; fxMask(g, pos, e); g.restore(); }
+        ctx.save(); ctx.globalAlpha = w.a; ctx.drawImage(off, 0, 0); ctx.restore();
+      }
+    } catch (err) { console.warn(n, err); }
+  }
+}
 function renderScene(ctx, proj, i, t) {
+  FX_OPT = proj.fxOpt || {}; FX_TOTAL = proj.total || 20;
   const e = sceneEnv(proj, i, t);
   const u = e.D > 0 ? clamp(e.lt / e.D) : 0;
   // 배경: 아주 느린 켄번스 줌
+  const cam = motionCam(e.motion, e.lt);
   ctx.save();
+  if (cam && cam.bg) { ctx.translate(W / 2 + cam.dx * .6, H / 2 + cam.dy * .6); ctx.scale(cam.s + .02, cam.s + .02); ctx.translate(-W / 2, -H / 2); }
   if (FEEL.drift) { const s = 1 + FEEL.drift * 1.6 * u; ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.translate(-W / 2, -H / 2); }
   e.th.bg(ctx, t, e.v);
   ctx.restore();
@@ -98,7 +147,9 @@ function renderScene(ctx, proj, i, t) {
   const drift = FEEL.drift ? 1 + FEEL.drift * .5 * u : 1;
   const sc = drift * (1 + ex * .05);
   ctx.save(); ctx.globalAlpha = 1 - ex;
-  ctx.translate(e.A.cx, e.A.cy - ex * 24); ctx.scale(sc, sc); ctx.translate(-e.A.cx, -e.A.cy);
+  ctx.translate(e.A.cx, e.A.cy - ex * 24); ctx.scale(sc, sc);
+  if (cam) { ctx.translate(cam.dx, cam.dy); ctx.rotate(cam.rot || 0); ctx.scale(cam.s, cam.s); }
+  ctx.translate(-e.A.cx, -e.A.cy);
   ctx.drawImage(cl, 0, 0);
   ctx.restore();
   ctx.save(); e.th.fx(ctx, t, e.v); ctx.restore();
@@ -181,7 +232,7 @@ function renderFrame(ctx, proj, t, view = {}) {
     const th = THEMES[proj.theme] || THEMES.ns; if (proj.theme === 'key') setKeyColor(proj.key);
     try { th.bg(ctx, t, 0); } catch (_) { }
     ctx.restore();
-    if (SHOW_HINTS) drawHint(ctx, areaFor(proj), STAGE === 'tong' ? '왼쪽에서 장면을 골라 쌓아 보세요' : '왼쪽 ‘직접 만들기’에서 장면을 골라 쌓아 보세요');
+    if (SHOW_HINTS) drawHint(ctx, areaFor(proj), STAGE === 'tong' ? '왼쪽 ⚡ 자동으로 채우기를 눌러 보세요' : '왼쪽 ‘직접 만들기’에서 장면을 골라 쌓아 보세요');
     drawOverlay(ctx, proj, view); return;
   }
   t = clamp(t, 0, proj.total - 1e-4);

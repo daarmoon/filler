@@ -328,4 +328,31 @@ const EFFECTS = {
   비네팅: { layer: 'post', fn(ctx) { FX.vignette(ctx, .55); } },
 };
 const EFFECT_NAMES = Object.keys(EFFECTS);
-function parseFxList(v) { return String(v || '').split(/[+·,\s]+/).map(s => s.trim()).filter(s => EFFECTS[s]); }
+function parseFxList(v) { return String(v || '').replace(/\([^)]*\)/g, '').split(/[+·,\s]+/).map(s => s.trim()).filter(s => EFFECTS[s]); }
+// 전체 효과 + 효과마다 옵션: '효과: 금가루(위, 2배, 3회)+스캔라인'
+//  위치 전체·위·아래·왼쪽·오른쪽·가운데 / 속도 0.5배~2배 (느리게·빠르게도 됨) / 반복 계속·1회~9회 (영상 안에서 몇 번 나올지)
+const FX_POS = ['전체', '위', '아래', '왼쪽', '오른쪽', '가운데'];
+const FX_SPEEDS = [[.5, '느리게 (0.5배)'], [.75, '조금 느리게'], [1, '보통 속도'], [1.5, '빠르게 (1.5배)'], [2, '아주 빠르게 (2배)']];
+const FX_REPS = [[0, '계속'], [1, '1번'], [2, '2번'], [3, '3번'], [4, '4번'], [5, '5번']];
+function parseFxSpec(v) {
+  const list = [], opt = {}; v = String(v || '');
+  if (!v.includes('(')) return { list: parseFxList(v), opt };
+  for (const m of v.matchAll(/([^+·()]+?)\s*(?:\(([^)]*)\))?\s*(?:[+·]|$)/g)) {
+    const name = m[1].trim(); if (!EFFECTS[name] || list.includes(name)) continue; list.push(name);
+    if (!m[2]) continue; const o = {};
+    for (const tk of m[2].split(/[,\s]+/).map(x => x.trim()).filter(Boolean)) {
+      if (FX_POS.includes(tk)) o.pos = tk;
+      else if (/^[\d.]+배$/.test(tk)) o.speed = clamp(parseFloat(tk), .25, 4);
+      else if (tk === '느리게') o.speed = .5; else if (tk === '빠르게') o.speed = 1.5;
+      else if (/^\d+(회|번)$/.test(tk)) o.rep = clamp(parseInt(tk), 1, 9);
+      else if (tk === '계속') o.rep = 0;
+    }
+    if ((o.pos && o.pos !== '전체') || (o.speed && o.speed !== 1) || o.rep) opt[name] = o;
+  }
+  return { list, opt };
+}
+function serializeFx(list, opt = {}) {
+  return list.map(n => { const o = opt[n] || {}, parts = [];
+    if (o.pos && o.pos !== '전체') parts.push(o.pos); if (o.speed && o.speed !== 1) parts.push(o.speed + '배'); if (o.rep) parts.push(o.rep + '번');
+    return parts.length ? `${n}(${parts.join(', ')})` : n; }).join('+');
+}

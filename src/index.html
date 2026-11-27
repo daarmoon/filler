@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>하드필러 메이커</title>
+<title>필러메이커스</title>
+<link rel="icon" type="image/png" href="__LOGO_DATA__">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Gothic+A1:wght@700;900&family=Jua&family=Nanum+Myeongjo:wght@800&family=Noto+Sans+KR:wght@400;500;700;900&family=Gasoek+One&family=Bagel+Fat+One&family=Noto+Serif+KR:wght@900&family=Hahmlet:wght@900&family=Song+Myung&family=Sunflower:wght@700&family=Gugi&family=Orbit&family=Yeon+Sung&family=East+Sea+Dokdo&family=Nanum+Brush+Script&family=Nanum+Pen+Script&family=Dongle:wght@700&family=Black+And+White+Picture&family=Moirai+One&display=block" rel="stylesheet">
@@ -11,12 +12,13 @@
 [hidden]{display:none!important}
 .brand .ver{font-size:11px;color:var(--dim);margin-left:6px;align-self:flex-end;padding-bottom:4px}
 :root{
-  --red:#F40013;--red-d:#D10011;--red-soft:#FFF0F1;--red-mid:#FFD6DA;--ink:#111114;--ink2:#4B4D57;--dim:#8B8F9B;
+  --red:#F40013;--red-d:#D10011;--red-soft:#FFF0F1;--red-mid:#FFD6DA;--ink:#111114;--ink2:#4B4D57;--dim:#6C707C;
   --line:#ECECF1;--line2:#E2E3EA;--bg:#F5F5F8;--card:#FFFFFF;--field:#F7F7FA;--ok:#14A56B;
   --r:16px;--r-s:10px;--sh:0 1px 2px rgba(17,17,26,.04),0 6px 20px rgba(17,17,26,.06);--sh-h:0 2px 6px rgba(17,17,26,.06),0 12px 28px rgba(17,17,26,.10);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1.5 'Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+html,body{margin:0;height:100%;}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--ink);font:14px/1.5 'Noto Sans KR',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 button,select,input,textarea{font:inherit;color:inherit}
 button{background:var(--card);border:1px solid var(--line2);border-radius:999px;padding:7px 14px;cursor:pointer;transition:all .18s ease;font-weight:500;white-space:nowrap}
 button:hover{border-color:#cfd0d8;background:#fafafc;transform:translateY(-1px)}
@@ -37,13 +39,13 @@ select:focus,input:focus,textarea:focus{border-color:var(--red);box-shadow:0 0 0
 select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,#999 50%),linear-gradient(135deg,#999 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat;padding-right:28px}
 input[type=range]{accent-color:var(--red);width:100%}
 input[type=checkbox]{accent-color:var(--red)}
-label{color:var(--ink2);font-size:12px;font-weight:500}
+label{color:var(--ink2);font-size:12.5px;font-weight:600}
 .dim{color:var(--dim);font-size:12px}
 code{background:var(--red-soft);color:var(--red);padding:0 5px;border-radius:5px;font-size:12px}
 
 header{display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .brand{display:flex;align-items:center;gap:10px}
-.brand .mark{width:34px;height:34px;border-radius:10px;background:var(--red);display:grid;place-items:center;color:#fff;font:400 17px 'Black Han Sans';box-shadow:0 4px 12px rgba(244,0,19,.3)}
+.brand .mark{width:36px;height:36px;display:block;object-fit:contain}
 .brand h1{margin:0;font:400 19px 'Black Han Sans','Noto Sans KR';letter-spacing:.3px}
 .brand h1 span{color:var(--red)}
 .seg{display:inline-flex;background:var(--field);border:1px solid var(--line);border-radius:999px;padding:3px;gap:2px}
@@ -56,7 +58,15 @@ header{display:flex;align-items:center;gap:14px;padding:12px 22px;background:var
 .durBox input[type=number]{width:58px;padding:3px 6px;background:#fff;text-align:center}
 .spacer{flex:1}
 
-main{display:grid;grid-template-columns:430px minmax(0,1fr) 320px;gap:18px;padding:18px 22px;height:calc(100vh - 63px)}
+main{--lw:400px;--rw:320px;display:grid;grid-template-columns:var(--lw) 14px minmax(360px,1fr) 14px var(--rw);gap:0;padding:16px 18px;flex:1;min-height:0;min-width:1000px}
+/* 칸 사이 손잡이: 끌어서 왼쪽·오른쪽 칸 너비 조절, 두 번 누르면 처음 너비 */
+.split{cursor:col-resize;position:relative;touch-action:none}
+.split::before{content:'';position:absolute;left:50%;top:8px;bottom:8px;width:4px;margin-left:-2px;border-radius:4px;background:transparent;transition:background .15s}
+.split::after{content:'';position:absolute;left:50%;top:50%;width:4px;height:36px;margin:-18px 0 0 -2px;border-radius:4px;background:var(--line2)}
+.split:hover::before,.split.on::before{background:var(--red-mid)}
+.split:hover::after,.split.on::after{background:var(--red)}
+body.resizing{cursor:col-resize;user-select:none}
+body.resizing canvas{pointer-events:none}
 .col{display:flex;flex-direction:column;gap:14px;overflow:auto;padding:2px 4px 18px;scrollbar-width:thin}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:16px}
 .card h3{margin:0 0 12px;font-size:14px;display:flex;align-items:center;gap:8px}
@@ -73,7 +83,8 @@ main{display:grid;grid-template-columns:430px minmax(0,1fr) 320px;gap:18px;paddi
 .field:last-child{margin-bottom:0}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:3fr 2fr;gap:10px}
-.hint{font-size:11.5px;color:var(--dim)}
+.row3e{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.hint{font-size:12px;color:var(--dim);line-height:1.55}
 .priceBox{background:var(--field);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:11px;display:flex;flex-direction:column}
 .priceBox input[type=text]{background:#fff}
 .calc{margin-top:10px;font-size:12.5px;color:var(--ink2);line-height:1.6}
@@ -117,6 +128,11 @@ main{display:grid;grid-template-columns:430px minmax(0,1fr) 320px;gap:18px;paddi
 .fxChips{display:flex;flex-wrap:wrap;gap:5px}
 .fxChips button{font-size:11.5px;padding:4px 10px;background:var(--field);border-color:var(--line)}
 .fxChips button.on{background:var(--red);border-color:var(--red);color:#fff}
+.fxOpts:not(:empty){margin-top:12px;border-top:1px dashed var(--line2);padding-top:10px;display:flex;flex-direction:column;gap:6px}
+.fxHead,.fxRow{display:grid;grid-template-columns:minmax(52px,1fr) 1.1fr 1.3fr 1fr;gap:5px;align-items:center}
+.fxHead span{font-size:11px;color:var(--ink2);font-weight:700}
+.fxRow b{font-size:12.5px;color:var(--red);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fxRow select{padding:5px 20px 5px 7px;font-size:12px;background-position:calc(100% - 11px) 52%,calc(100% - 6px) 52%}
 .variants{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
 .vcard{border:2px solid var(--line);border-radius:12px;overflow:hidden;background:#fff;position:relative}
 .vcard canvas{display:block;width:100%;aspect-ratio:16/9;cursor:pointer}
@@ -146,7 +162,7 @@ main{display:grid;grid-template-columns:430px minmax(0,1fr) 320px;gap:18px;paddi
 
 .stage{display:flex;flex-direction:column;gap:14px;overflow:auto;padding:2px 4px 18px;min-width:0}
 .stage>*,.col>*,.pane>*{flex-shrink:0}
-.canvasWrap{position:relative;width:100%;aspect-ratio:16/9;height:auto;background:#000;border-radius:18px;overflow:hidden;box-shadow:0 10px 40px rgba(17,17,26,.18)}
+.canvasWrap{position:relative;width:min(100%,calc((100vh - 290px) * 16 / 9));min-width:min(100%,520px);margin:0 auto;aspect-ratio:16/9;height:auto;background:#000;border-radius:18px;overflow:hidden;box-shadow:0 10px 40px rgba(17,17,26,.18)}
 #cv{width:100%;height:100%;display:block}
 .transport{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 #playBtn{min-width:96px}
@@ -188,6 +204,7 @@ progress{width:100%;height:10px;accent-color:var(--red)}
 .toast.on{opacity:1;transform:translate(-50%,0);pointer-events:auto}
 .toast button{background:transparent;border:0;color:#ff8a95;font-weight:700;padding:0}
 .toast button:hover{transform:none;background:transparent;color:#fff}
+.keys{font-size:11px;opacity:.8;text-align:center}
 .kbd{display:inline-block;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;padding:0 5px;font-size:11px;background:#fff;color:var(--ink2)}
 .colHead{display:flex;align-items:baseline;gap:8px;padding:0 4px}
 .colHead b{font-size:15px}
@@ -199,13 +216,16 @@ progress{width:100%;height:10px;accent-color:var(--red)}
 .dd.open .ddBtn{border-color:var(--red);box-shadow:0 0 0 3px rgba(244,0,19,.12);background:#fff}
 .ddPanel{display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:30;background:#fff;border:1px solid var(--line2);border-radius:14px;box-shadow:0 16px 40px rgba(17,17,26,.18);padding:6px;max-height:440px;overflow:auto;scrollbar-width:thin}
 .dd.open .ddPanel{display:block}
-.dd.open .ddPanel.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dd.open .ddPanel.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;align-items:start}
 .ddItem{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:10px;cursor:pointer;border:2px solid transparent}
 .ddItem:hover{background:var(--field)}
 .ddItem.on{background:var(--red-soft);border-color:var(--red-mid)}
 .ddItem.on b{color:var(--red)}
 .dd canvas{flex:none;width:76px;aspect-ratio:16/9;border-radius:7px;display:block;background:#eee}
-.ddPanel.grid .ddItem{flex-direction:column;align-items:stretch;gap:4px;padding:5px}
+.ddPanel.grid .ddItem{flex-direction:column;align-items:stretch;gap:4px;padding:5px;min-width:0}
+.ddPanel.grid .ddTxt b{white-space:normal;overflow:visible;line-height:1.25;word-break:keep-all}
+.ddPanel.grid .ddTxt{min-height:2.9em}
+.ddGroup{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--ink2);padding:6px 4px 0;letter-spacing:.2px}
 .ddPanel.grid .ddItem canvas{width:100%}
 .ddPanel .ico,.ddBtn .ico{flex:none;width:76px;aspect-ratio:16/9;border-radius:7px;display:grid;place-items:center;font-size:20px;background:linear-gradient(135deg,#fff,#ffeef0)}
 .ddPanel.grid .ddItem .ico{width:100%}
@@ -258,11 +278,36 @@ details.scDesign select,details.scDesign input[type=text]{background-color:#fff}
 .lineTools button.em{color:var(--red);font-weight:700}
 .secLabel{font-size:11px;font-weight:700;color:var(--dim);letter-spacing:.3px;margin:2px 0 6px}
 .stItem .ty{border-radius:999px;padding:2px 0;text-align:center;font-size:12px}
+/* 통강조 전용 화면 */
+.tScenes{display:flex;flex-direction:column;gap:14px}
+.tScene.sel{border-color:var(--red);box-shadow:0 0 0 3px rgba(244,0,19,.08),var(--sh)}
+.tScene h3 .del{margin-left:6px;padding:2px 9px;font-size:11.5px;color:var(--ink2)}
+.tKinds{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.tKinds button{padding:5px 11px;font-size:12.5px;background:var(--field);border-color:var(--line)}
+.tKinds button.on{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:700}
+.tScene textarea{min-height:76px;font:15px/1.5 'Noto Sans KR',sans-serif}
+.mNow{width:100%;display:flex;align-items:center;gap:12px;border-radius:12px;padding:6px 36px 6px 6px;background:var(--field);border:1px solid var(--line);text-align:left;position:relative;white-space:normal}
+.mNow:hover{transform:none;background:#fff;border-color:var(--red-mid)}
+.mNow::after{content:'';position:absolute;right:15px;top:50%;width:7px;height:7px;border-right:2px solid #999;border-bottom:2px solid #999;transform:translateY(-70%) rotate(45deg)}
+.mNow.open::after{transform:translateY(-30%) rotate(-135deg)}
+.mNow canvas,.mCard canvas{display:block;border-radius:9px;background:#fff}
+.mNow canvas{width:96px;height:52px;flex:none}
+.mNow b{display:block;font-size:14px}.mNow small{color:var(--ink2);font-size:12px}
+.mGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;margin-top:8px}
+.mGroup{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--ink2);margin-top:4px}
+.mCard{border:2px solid var(--line);border-radius:12px;padding:4px;background:var(--field);cursor:pointer;display:flex;flex-direction:column;gap:3px;transition:border-color .15s,transform .15s}
+.mCard:hover{border-color:var(--red-mid);transform:translateY(-1px)}
+.mCard.on{border-color:var(--red);background:var(--red-soft)}
+.mCard canvas{width:100%;aspect-ratio:15/8}
+.mCard b{font-size:12.5px;text-align:center}.mCard.on b{color:var(--red)}
+.mCard small{font-size:10.5px;color:var(--ink2);text-align:center;line-height:1.3;min-height:2.6em}
+.tAdd{border:2px dashed var(--line2);border-radius:var(--r);padding:14px;text-align:center;color:var(--ink2);font-weight:700;background:transparent;width:100%}
+.tAdd:hover{border-color:var(--red);color:var(--red);background:var(--red-soft);transform:none}
 .tongOnly{display:none!important}
 body.tong .tongOnly{display:flex!important}
 body.tong .row2.tongOnly{display:grid!important}
 body.tong .wideOnly{display:none!important}
-.canvasWrap.tall{aspect-ratio:376/790;width:auto;height:min(64vh,760px);margin:0 auto;border-radius:14px}
+.canvasWrap.tall{aspect-ratio:376/790;width:auto;min-width:0;height:min(64vh,760px);margin:0 auto;border-radius:14px}
 .sizeTag{position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;border-radius:999px;padding:2px 9px;pointer-events:none}
 .canvasWrap.tall{overflow:visible;background:transparent;box-shadow:none}
 .canvasWrap.tall canvas{border-radius:14px;box-shadow:0 10px 40px rgba(17,17,26,.18);background:#000}
@@ -275,13 +320,12 @@ body.tong .wideOnly{display:none!important}
 .variants.tall .vcard canvas{aspect-ratio:376/790}
 .variants.tall .vcard .vb{flex-wrap:wrap;font-size:10.5px}
 .variants.tall .vcard .vb button{margin-left:0}
-@media (max-width:1280px){main{grid-template-columns:1fr;height:auto}.col,.stage{overflow:visible}}
-@media (max-width:700px){header{flex-wrap:wrap;padding:10px 16px}main{padding:14px 16px}.durBox input[type=range]{width:80px}}
+@media (max-width:1366px){header{gap:10px;padding:10px 16px}.durBox input[type=range]{width:80px}header button.ghost{padding:7px 9px}}
 </style>
 </head>
 <body>
 <header>
-  <div class="brand"><div class="mark">H</div><h1>하드필러 <span>메이커</span></h1><small class="ver" id="appVer"></small></div>
+  <div class="brand"><img class="mark" id="brandMark" src="__LOGO_DATA__" alt="NS"><h1>필러<span>메이커스</span></h1><small class="ver" id="appVer"></small></div>
   <div class="seg fmtTabs" id="fmtSeg"><button data-v="하드필러" class="on">하드필러</button><button data-v="오프닝필러">오프닝필러</button><button data-v="통강조" title="L바 왼쪽 네모 안에 들어가는 세로 영상 (376×790)">통강조</button></div>
   <div class="durBox"><label>길이</label><input type="range" id="durRange" min="5" max="30" step="0.5" value="20"><input type="number" id="durNum" min="3" max="60" step="0.5" value="20"><span class="dim">초</span></div>
   <div class="spacer"></div>
@@ -294,25 +338,54 @@ body.tong .wideOnly{display:none!important}
 <main>
   <!-- 왼쪽: 상품 · 문구 · 숫자 · 프롬프트 -->
   <section class="col">
-    <div class="colHead"><b>내용</b><span class="dim">장면 · 문구 · 자동 연출</span></div>
     <!-- 장면 편집 칸: 직접 만들기의 장면 목록 안(고른 장면 바로 아래)에만 펼쳐짐. 다른 탭에서는 여기 숨겨 둠 -->
     <div id="sceneHome" hidden><div class="card sceneCard" id="sceneCard" hidden><div id="sceneText"></div></div></div>
-    <div class="tabs" id="tabs"><button data-p="build" class="on">🧱 직접 만들기</button><button data-p="quick">✨ 자동 연출</button><button data-p="board">📝 스토리보드</button><button data-p="src">🖼 소스</button></div>
+    <div class="tabs" id="tabs"><button data-p="build" class="on wideOnly">🧱 직접 만들기</button><button data-p="quick" class="wideOnly">✨ 자동 연출</button><button data-p="tong" class="tongOnly">⚡ 통강조 만들기</button><button data-p="board">📝 스토리보드</button><button data-p="src">🖼 소스</button></div>
 
     <div class="pane on" id="pane-build">
       <div class="card">
-        <h3><span class="num">1</span>장면 고르기 <span class="badge">누르면 아래에 쌓여요</span></h3>
+        <h3><span class="num">1</span>장면 고르기 <span class="badge">누르면 쌓여요</span></h3>
         <div class="palette" id="palette"></div>
       </div>
       <div class="card">
-        <h3><span class="num">2</span>내 장면 · 장면별 설정 <span class="badge" id="stackCount"></span></h3>
+        <h3><span class="num">2</span>내 장면 <span class="badge" id="stackCount"></span></h3>
         <div class="stack" id="stack"></div>
-        <div class="hint" style="margin-top:10px">장면을 누르면 그 자리에서 문구·이미지·단서 자막·꾸미기(배경·모션·전환·효과)를 한 번에 정해요. 순서는 ▲▼ 버튼이나 가운데 장면 썸네일을 끌어서 바꿔요.<br>참고 예시는 📝 스토리보드 탭의 ‘예시 불러오기’, 상품 정보로 한 번에 만들려면 ✨ 자동 연출.</div>
+        <div class="hint" style="margin-top:10px">장면을 누르면 문구·이미지·꾸미기를 바로 고쳐요. 순서는 ▲▼ 또는 가운데 썸네일을 끌어서.</div>
       </div>
       <div class="card">
-        <h3><span class="num">3</span>단서 자막 <span class="badge">모든 장면 공통 · 선택</span></h3>
+        <h3><span class="num">3</span>단서 자막 <span class="badge">선택</span></h3>
         <input type="text" id="bDan" placeholder="예: 박스당 최저가격찬스 | NS기준, 50% 세일, 총5회">
-        <div class="hint" style="margin-top:6px"><code>|</code> 앞은 굵은 제목, 뒤는 작은 고지 문구예요. 장면마다 다르게 하려면 장면을 눌러 그 장면의 ‘단서 자막’ 칸에 쓰고, 그 장면만 빼려면 <code>없음</code>이라고 써요.</div>
+        <label class="tog" style="margin-top:8px"><input type="checkbox" id="bDanBg" checked>글자 뒤 검은 띠 <span class="dim">끄면 흰 글씨 + 검은 테두리</span></label>
+        <div class="hint" style="margin-top:6px"><code>|</code> 앞은 굵은 제목, 뒤는 작은 고지 문구. 장면마다 다르게 하려면 그 장면을 눌러서.</div>
+      </div>
+    </div>
+
+    <!-- 통강조 전용: 8초 안에 소구점을 세게 박는 간단 화면 (장면 2~3개 + 임팩트 모션) -->
+    <div class="pane" id="pane-tong">
+      <div class="card tqCard">
+        <h3>⚡ 한 번에 채우기 <span class="badge">상품명 · 가격만 넣으면 돼요</span></h3>
+        <div class="row2">
+          <div class="field"><label>상품명</label><input type="text" id="tqProduct" placeholder="예: 쿨링 이불"></div>
+          <div class="field"><label>판매가</label><input type="text" id="tqPrice" placeholder="39900" inputmode="numeric"></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>정가 <span class="dim">넣으면 숫자가 내려가요</span></label><input type="text" id="tqList" placeholder="59000" inputmode="numeric"></div>
+          <div class="field"><label>어그로 한마디 <span class="dim">선택</span></label><input type="text" id="tqHook" placeholder="오늘만 / *반값*"></div>
+        </div>
+        <div class="ctaRow"><button class="primary" id="tqGo">⚡ 자동으로 채우기</button><button class="soft" id="tqShuffle">🎲 다른 버전</button></div>
+      </div>
+      <div class="card">
+        <h3>위 · 아래 띠</h3>
+        <div class="row2">
+          <div class="field"><label>위 띠</label><input type="text" id="tHead" placeholder="예: 쿨링 이불"></div>
+          <div class="field"><label>아래 띠 <span class="dim"><code>|</code> 줄바꿈</span></label><input type="text" id="tFoot" placeholder="앱 주문 시 | *3천원 적립*"></div>
+        </div>
+      </div>
+      <div id="tScenes" class="tScenes"></div>
+      <div class="card">
+        <h3>단서 자막 <span class="badge">선택</span></h3>
+        <input type="text" id="tDan" placeholder="예: 냉감 기준 | 자사 시험 Q-max 0.2">
+        <label class="tog" style="margin-top:8px"><input type="checkbox" id="tDanBg" checked>글자 뒤 검은 띠 <span class="dim">끄면 흰 글씨 + 검은 테두리</span></label>
       </div>
     </div>
 
@@ -324,36 +397,37 @@ body.tong .wideOnly{display:none!important}
           <div class="field"><label>위 고정 띠 (머리) <span class="dim">비우면 상품명</span></label><input type="text" id="fTongHead" placeholder="예: 강화유리 용기"></div>
           <div class="field"><label>아래 고정 띠 (꼬리)</label><input type="text" id="fTongFoot" placeholder="예: 앱 주문 시 | 3천원 적립"></div>
         </div>
-        <div class="field"><label>첫 카피 <span class="dim">(비우면 자동)</span></label><input type="text" id="fHook" placeholder="예: 봄바람 몰고 쇼핑혜택"></div>
-        <div class="field"><label>특징 · 포인트 <span class="dim">(한 줄에 하나 · 큰 글자로 한 번씩 박아요)</span></label><textarea id="fPoints" rows="3" placeholder="조리과정 한눈에&#10;식기세척기 가능&#10;밀폐테스트 완료"></textarea></div>
-        <div class="field"><label>구성 <span class="dim">(이름 · 이미지 · 수량)</span></label>
+        <div class="field"><label>특징 · 포인트 <span class="dim">한 줄에 하나씩</span></label><textarea id="fPoints" rows="3" placeholder="조리과정 한눈에&#10;식기세척기 가능&#10;밀폐테스트 완료"></textarea></div>
+        <div class="priceBox">
+          <div class="row3e">
+            <div class="field"><label>정가</label><input type="text" id="fListPrice" placeholder="99000" inputmode="numeric"></div>
+            <div class="field"><label>할인율 %</label><input type="text" id="fRate" placeholder="23" inputmode="numeric"></div>
+            <div class="field"><label>판매가</label><input type="text" id="fPrice" placeholder="76090" inputmode="numeric"></div>
+          </div>
+          <div class="calc" id="fCalc"></div>
+        </div>
+        <div class="field"><label>구성 <span class="dim">이름 · 이미지 · 수량</span></label>
           <div id="fComps"></div>
           <div><button class="small" id="fAddComp">+ 구성 추가</button></div>
         </div>
-        <div class="priceBox">
+        <details class="more" id="quickMore"><summary>더 넣기 <span class="dim">첫 카피 · 가격 조건 · 단서 자막 등</span></summary>
+          <div class="field"><label>첫 카피 <span class="dim">비우면 자동</span></label><input type="text" id="fHook" placeholder="예: 봄바람 몰고 쇼핑혜택"></div>
           <div class="row2">
-            <div class="field"><label>정가 <span class="dim">(선택)</span></label><input type="text" id="fListPrice" placeholder="99000" inputmode="numeric"></div>
-            <div class="field"><label>할인율 % <span class="dim">(선택)</span></label><input type="text" id="fRate" placeholder="23" inputmode="numeric"></div>
-          </div>
-          <div class="row2">
-            <div class="field"><label>판매가 <span class="dim">(비우면 자동 계산)</span></label><input type="text" id="fPrice" placeholder="76090" inputmode="numeric"></div>
             <div class="field"><label>가격 앞 문구</label><input type="text" id="fPricePre" placeholder="단,"></div>
+            <div class="field"><label>가격 조건</label><input type="text" id="fPriceNote" placeholder="(모바일 10% 할인 시)"></div>
           </div>
           <div class="row2">
             <div class="field"><label>단위</label><input type="text" id="fUnit" placeholder="팩 · 개 · 통"></div>
-            <div class="field"><label>총 수량 <span class="dim">(비우면 구성 합계)</span></label><input type="text" id="fQty" placeholder="자동" inputmode="numeric"></div>
+            <div class="field"><label>총 수량</label><input type="text" id="fQty" placeholder="자동" inputmode="numeric"></div>
           </div>
-          <div class="field"><label>가격 조건 <span class="dim">(선택)</span></label><input type="text" id="fPriceNote" placeholder="(모바일 10% 할인 시)"></div>
-          <div class="field"><label>가격 숫자 연출</label><select id="fPriceMotion"><option value="자동">자동 · 정가가 있으면 정가에서 내려가기</option><option value="굴리기">숫자 굴리기 (슬롯처럼 돌다 멈춤)</option><option value="내려가기">정가에서 판매가로 내려가기</option></select></div>
+          <div class="field"><label>가격 숫자 연출</label><select id="fPriceMotion"><option value="자동">자동 · 정가가 있으면 내려가기</option><option value="굴리기">숫자 굴리기 (슬롯처럼 돌다 멈춤)</option><option value="내려가기">정가에서 판매가로 내려가기</option></select></div>
           <label class="tog" style="align-self:flex-start"><input type="checkbox" id="fPerScene" checked>'1팩당 약 ○원꼴' 장면 넣기</label>
-          <div class="calc" id="fCalc"></div>
-        </div>
-        <details class="more"><summary>더 넣기 <span class="dim">판매 실적 · 한정 문구 · 단서 자막</span></summary>
-          <div class="field wideOnly"><label>판매 실적 <span class="dim">(선택)</span></label><input type="text" id="fRecord" placeholder="예: 100,000,000통"></div>
-          <div class="field"><label>한정·마감 문구 <span class="dim">(비우면 자동)</span></label><input type="text" id="fUrgent" placeholder="예: 방송 끝나면 / *이 조건 불가능*"></div>
-          <div class="field"><label>단서 자막 <span class="dim">(모든 장면 공통 · 직접 만들기의 단서 자막과 같은 칸)</span></label><input type="text" id="fDan" placeholder="예: 박스당 NS최저가격찬스 | NS기준, 50% 세일, 총5회"></div>
+          <div class="field wideOnly"><label>판매 실적</label><input type="text" id="fRecord" placeholder="예: 100,000,000통"></div>
+          <div class="field"><label>한정·마감 문구 <span class="dim">비우면 자동</span></label><input type="text" id="fUrgent" placeholder="예: 방송 끝나면 / *이 조건 불가능*"></div>
+          <div class="field"><label>단서 자막 <span class="dim">모든 장면 공통</span></label><input type="text" id="fDan" placeholder="예: 박스당 NS최저가격찬스 | NS기준, 50% 세일, 총5회">
+            <label class="tog" style="align-self:flex-start;margin-top:4px"><input type="checkbox" id="fDanBg" checked>글자 뒤 검은 띠 <span class="dim">끄면 흰 글씨 + 검은 테두리</span></label></div>
         </details>
-        <div class="hint" style="margin-top:8px">줄을 나누려면 <code>/</code>, 포인트 색은 <code>*별표*</code>로 감싸요. 단서 자막은 <code>|</code> 앞이 굵은 제목, 뒤가 작은 고지 문구예요.</div>
+        <div class="hint" style="margin-top:8px">줄바꿈은 <code>/</code>, 포인트 색은 <code>*별표*</code>로 감싸요.</div>
       </div>
       <div class="card">
         <h3><span class="num">2</span>연출 만들기 <span class="badge" id="fmtBadge">하드필러</span></h3>
@@ -368,7 +442,7 @@ body.tong .wideOnly{display:none!important}
         </div>
         <div class="ctaRow" style="margin-top:8px"><button class="dark" id="multiBtn" title="서로 다른 스타일로 4개를 한 번에 만들어 비교">🧪 여러 스타일로 한 번에 뽑기</button></div>
         <div id="variants"></div>
-        <div class="hint" style="margin-top:8px">만든 뒤에는 🧱 직접 만들기 탭에서 장면마다 문구·꾸미기를 고칠 수 있어요. 마음에 안 들면 위의 ↶ 되돌리기.</div>
+        <div class="hint" style="margin-top:8px">만든 뒤 🧱 직접 만들기에서 장면마다 고칠 수 있어요.</div>
       </div>
       <div class="card aiBox">
         <h3><span class="spark">✦</span>AI 연출 <span class="badge">Claude · 선택</span></h3>
@@ -400,18 +474,18 @@ body.tong .wideOnly{display:none!important}
         <code>/</code> 줄바꿈 · <code>*강조*</code> 포인트 색 · <code>@이름</code> 이미지 · <code>x8</code> 수량 · <code>|</code> 글자 분리 · <code>#</code> 메모
         <table>
           <tr><td><code>길이</code></td><td>장면 초 (비우면 전체 길이에 맞춰 자동)</td></tr>
-          <tr><td><code>모션</code></td><td>팝 · 타이핑 · 슬라이드 · 스탬프 · 블러 · 드롭 · 웨이브 · 바운스 · 플립 · 줌인 · 회전 · 글리치 · 네온</td></tr>
+          <tr><td><code>모션</code></td><td>팝 · 타이핑 · 슬라이드 · 스탬프 · 블러 · 드롭 · 웨이브 · 바운스 · 플립 · 줌인 · 회전 · 글리치 · 네온<br>임팩트: 쾅 · 펀치 · 지진 · 흔들기 · 두근 · 번쩍 · 젤리 · 고무줄 · 슬롯 · 흩어모으기 · 회오리 · 쓸기 · 깜빡</td></tr>
           <tr><td><code>전환</code></td><td>자동 · 컷 · 디졸브 · 밀기 · 플래시 · 와이프 · 원형 · 줌 · 타이포 · 블라인드 · 글리치 · 스핀</td></tr>
           <tr><td><code>배경</code></td><td>1 · 2 · 3 (테마 안의 배경 종류)</td></tr>
           <tr><td><code>소품</code></td><td>사이렌 · 시계 · 선물 · 화살표위 · 화살표아래 · TV · 없음</td></tr>
-          <tr><td><code>효과</code></td><td>코인+반짝이 처럼 <code>+</code>로 여러 개 · <code>없음</code>은 전체 효과 끄기</td></tr>
+          <tr><td><code>효과</code></td><td>코인+반짝이 처럼 <code>+</code>로 여러 개 · <code>없음</code>은 전체 효과 끄기 · 첫 줄에서는 <code>꽃잎(위, 2배, 3번)</code>처럼 위치·속도·반복</td></tr>
           <tr><td>타이포</td><td><code>[타이포] (작게)지금 이 방송 / *찬란한 혜택!* {스타일: 쌓기}</code> · 스타일 <code>쌓기</code>(줄이 쌓임) · <code>교체</code>(한 줄씩 화면 가득) · 줄 앞 <code>(외곽)</code> <code>(박스)</code> <code>(테이프)</code> <code>(입체)</code> <code>(자간)</code> <code>(작게)</code> <code>(크게)</code></td></tr>
           <tr><td>이미지</td><td><code>크기: 130</code> 장면 이미지 크기(%) · 첫 줄 <code>이미지크기: 120</code> 전체</td></tr>
           <tr><td>자간·행간</td><td>첫 줄 <code>자간: -5 / 행간: 90</code> 전체 · 장면 옵션 <code>{자간: 10, 행간: 120}</code> (자간은 글자 크기의 %, 행간은 기본 100%)</td></tr>
           <tr><td>기타</td><td><code>스타일</code>(강조: 분리·반복·기울임·박스) · <code>강조박스</code> · <code>색: #F40013</code> · <code>폰트: 명조</code> · <code>위치: 좌</code></td></tr>
           <tr><td>첫 줄</td><td><code>형식: 하드필러 / 테마: NS 레드 / 길이: 20 / L바: 기본 / 느낌: 부드럽게</code></td></tr>
           <tr><td>가격</td><td><code>{정가: 99,000원, 할인: 23%, 가격모션: 내려가기}</code> · 가격모션 <code>굴리기</code>(기본, 슬롯처럼 돌다 멈춤) · <code>내려가기</code>(정가에서 판매가로 내려옴)</td></tr>
-          <tr><td>단서</td><td>첫 줄 <code>단서: 박스당 최저가 | NS기준, 50% 세일</code> 모든 장면 · 장면 옵션 <code>{단서: "가격 기준 | NS 정상가 대비, 모바일 할인 별도"}</code> 그 장면만 (쉼표가 있으면 <code>"따옴표"</code>) · <code>{단서: 없음}</code> 그 장면은 빼기</td></tr>
+          <tr><td>단서</td><td>첫 줄 <code>단서: 박스당 최저가 | NS기준, 50% 세일</code> 모든 장면 · 장면 옵션 <code>{단서: "가격 기준 | NS 정상가 대비, 모바일 할인 별도"}</code> 그 장면만 (쉼표가 있으면 <code>"따옴표"</code>) · <code>{단서: 없음}</code> 그 장면은 빼기 · 첫 줄 <code>단서배경: 없음</code> 검은 띠 없이 흰 글씨 + 테두리</td></tr>
           <tr><td>타이포</td><td>효과 <code>글자패턴</code>(<code>패턴: SALE</code>) · <code>화살표하락</code> · <code>화살표상승</code> · <code>대각분할</code> · <code>원형스포트</code> · <code>종이질감</code> · <code>플래시</code> (예전 인서트 탭의 효과, 이제 모든 형식에서 써요)</td></tr>
           <tr><td>통강조</td><td><code>형식: 통강조 / 머리: 위 띠 문구 / 꼬리: 앱 주문 시 | 3천원 적립 / 틀: 카드</code> (<code>|</code>는 띠 안 줄바꿈) · 최대 8초, 장면 2개 정도</td></tr>
         </table>
@@ -422,7 +496,7 @@ body.tong .wideOnly{display:none!important}
       <div class="card">
         <h3>이미지 소스 <span class="badge">상품컷 · 로고</span></h3>
         <label class="drop" id="imgDrop"><b>이미지를 끌어다 놓거나 눌러서 올리기</b>PNG·JPG 여러 장 가능 · 흰 배경은 '배경 제거'로 지워져요<input type="file" id="imgFile" accept="image/*" multiple hidden></label>
-        <div class="hint" style="margin:8px 0 10px">스토리보드에 <code>@이름</code> 또는 <code>{이미지: 이름}</code>으로 쓰면 들어가요. 장면의 이미지 칸이나 자동 연출의 구성에서도 고를 수 있어요.</div>
+        <div class="hint" style="margin:8px 0 10px">올린 이미지는 장면의 이미지 칸에서 골라요.</div>
         <div id="assets"></div>
       </div>
       <div class="card">
@@ -433,6 +507,7 @@ body.tong .wideOnly{display:none!important}
     </div>
   </section>
 
+  <div class="split" id="splitL" title="끌어서 칸 너비 조절 · 두 번 누르면 처음 너비"></div>
   <!-- 가운데: 미리보기 -->
   <section class="stage">
     <div class="canvasWrap" id="canvasWrap"><canvas id="cv" width="1920" height="1080"></canvas><div class="sizeTag" id="sizeTag">1920×1080</div></div>
@@ -455,9 +530,10 @@ body.tong .wideOnly{display:none!important}
       <div class="thumbs" id="thumbs"></div>
     </div>
     <div class="warns" id="warns"></div>
-    <div class="dim">단축키 <span class="kbd">Space</span> 재생 · <span class="kbd">←</span> <span class="kbd">→</span> 장면 이동 · <span class="kbd">Ctrl+Z</span> 되돌리기 · <span class="kbd">Ctrl+S</span> 저장</div>
+    <div class="dim keys">단축키 <span class="kbd">Space</span> 재생 · <span class="kbd">←</span> <span class="kbd">→</span> 장면 이동 · <span class="kbd">Ctrl+Z</span> 되돌리기 · <span class="kbd">Ctrl+S</span> 저장</div>
   </section>
 
+  <div class="split" id="splitR" title="끌어서 칸 너비 조절 · 두 번 누르면 처음 너비"></div>
   <!-- 오른쪽: 모든 장면에 한 번에 적용되는 디자인 (장면 하나만 바꾸는 건 왼쪽 장면 편집 칸의 '꾸미기') -->
   <section class="col">
     <div class="colHead"><b>전체 디자인</b><span class="dim">모든 장면에 한 번에</span></div>
@@ -465,7 +541,7 @@ body.tong .wideOnly{display:none!important}
       <h3>스타일 · 테마</h3>
       <div class="field"><label>스타일 <span class="dim">테마·폰트·모션·효과를 한 번에</span></label><input type="hidden" id="fTheme"><div class="dd" id="ddStyle"></div></div>
       <div class="field"><label>테마 <span class="dim">배경과 색만</span></label><div class="dd" id="ddTheme"></div></div>
-      <details class="more" id="keyBox"><summary>🎨 키컬러로 톤 맞추기 <span class="dim">상품·브랜드 색 하나로</span></summary>
+      <details class="more" id="keyBox"><summary>🎨 키컬러로 톤 맞추기</summary>
         <div class="keyRow" style="margin-top:8px"><input type="color" id="keyColor" value="#f40013" title="키컬러 직접 고르기"><div class="keyRow" id="keySw"></div></div>
         <div class="ctaRow" style="margin-top:8px"><button class="small" id="keyFromImg">🎨 상품 이미지에서 색 뽑기</button><button class="small soft" id="keyApply">이 색으로 맞추기</button></div>
         <div class="toneTag" id="keyTone"></div>
@@ -478,7 +554,7 @@ body.tong .wideOnly{display:none!important}
         <div class="field"><label>자간 <span class="dim" id="trackKv">0</span></label><input type="range" id="trackK" min="-10" max="30" step="1" value="0"></div>
         <div class="field"><label>행간 <span class="dim" id="leadKv">100%</span></label><input type="range" id="leadK" min="60" max="180" step="5" value="100"></div>
       </div>
-      <span class="hint">자간은 글자 사이(글자 크기의 %), 행간은 줄 사이 간격이에요. 장면 하나만 바꾸려면 그 장면의 ‘꾸미기’에서.</span>
+      
     </div>
     <div class="card">
       <h3>움직임 · 화면</h3>
@@ -490,11 +566,12 @@ body.tong .wideOnly{display:none!important}
         <div class="field wideOnly"><label>L바</label><select id="lbarSel"><option value="full">기본 L바</option><option value="bottom">하단바만</option><option value="none">없음</option></select></div>
         <div class="field tongOnly"><label>틀 <span class="dim">통강조 테두리</span></label><select id="frameSel"><option value="없음">없음</option><option value="카드">카드 (반투명 판)</option><option value="테두리">테두리 (이중선)</option><option value="네온">네온 (빛나는 선)</option><option value="코너">코너 (모서리 꺾쇠)</option></select></div>
       </div>
-      <div class="field"><label>상품 이미지 크기 <span class="dim" id="imgKv">100%</span></label><input type="range" id="imgK" min="50" max="200" step="5" value="100"><span class="hint">모든 장면의 상품 이미지를 한 번에 키우거나 줄여요. 장면 하나만은 그 장면의 이미지 크기로.</span></div>
+      <div class="field"><label>상품 이미지 크기 <span class="dim" id="imgKv">100%</span></label><input type="range" id="imgK" min="50" max="200" step="5" value="100"></div>
     </div>
     <div class="card">
       <h3>전체 효과 <span class="badge">모든 장면에 깔려요</span></h3>
       <div class="fxChips" id="fxGlobal"></div>
+      <div class="fxOpts" id="fxOpts"></div>
     </div>
   </section>
 </main>

@@ -6,11 +6,12 @@ const order = ['core.js', 'themes.js', 'effects.js', 'props.js', 'blocks.js', 't
 const read = f => fs.readFileSync(f, 'utf8');
 const vendor = ['mp4-muxer.js', 'webm-muxer.js'].map(f => read(path.join(root, 'vendor', f))).join('\n');
 const lbar = fs.readFileSync(path.join(root, 'assets', 'lbar-guide.png')).toString('base64');
+const logo = 'data:image/png;base64,' + fs.readFileSync(path.join(root, 'assets', 'ns-logo-128.png')).toString('base64'); // NS 로고 (화면 왼쪽 위·탭 아이콘)
 const version = JSON.parse(read(path.join(root, 'package.json'))).version;
 const app = `const LBAR_DATA = "data:image/png;base64,${lbar}";\nconst APP_VERSION = "${version}";\n` + order.map(f => read(path.join(src, f))).join('\n');
 const esc = s => s.replace(/<\/script/g, '<\\/script');
 let html = read(path.join(src, 'index.html'));
-html = html.replace('/*__VENDOR__*/', () => esc(vendor)).replace('/*__APP__*/', () => esc(app));
+html = html.replace(/__LOGO_DATA__/g, () => logo).replace('/*__VENDOR__*/', () => esc(vendor)).replace('/*__APP__*/', () => esc(app));
 const out = path.join(root, 'dist', 'hardfiller-maker.html');
 fs.mkdirSync(path.dirname(out), { recursive: true }); fs.writeFileSync(out, html);
 console.log(out, Math.round(html.length / 1024), 'KB');

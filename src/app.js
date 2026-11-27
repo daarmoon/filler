@@ -4,11 +4,11 @@ const LBAR_NAMES = { 기본: 'full', 'L바': 'full', 하단바: 'bottom', 없음
 const LBAR_LABEL = { full: '기본', bottom: '하단바', none: '없음', tong: '' };
 
 const S = {
-  text: '', texts: {}, fmt: '하드필러', head: '', foot: '', dan: '', imgK: 100, track: 0, lead: 100, frame: '없음', theme: 'ns', font: '', motion: 'pop', dur: 20, lbar: 'full', feel: '보통', key: '#f40013', fx: [], hist: [], seed: 1,
+  text: '', texts: {}, fmt: '하드필러', head: '', foot: '', dan: '', danBg: true, imgK: 100, track: 0, lead: 100, frame: '없음', theme: 'ns', font: '', motion: 'pop', dur: 20, lbar: 'full', feel: '보통', key: '#f40013', fx: [], fxOpt: {}, hist: [], seed: 1,
   scenes: [], total: 0, assets: {}, bgm: null,
   t: 0, playing: false, sel: -1, dirty: true, errors: [],
 };
-const proj = () => ({ fmt: S.fmt, head: S.head, foot: S.foot, dan: S.dan, imgK: S.imgK, track: S.track, lead: S.lead, frame: S.frame, fx: S.fx, key: S.key, feel: S.feel, scenes: S.scenes, theme: S.theme, font: S.font || null, motion: S.motion, lbar: S.lbar, total: S.total, assets: S.assets, bgm: S.bgm });
+const proj = () => ({ fmt: S.fmt, head: S.head, foot: S.foot, dan: S.dan, danBg: S.danBg, imgK: S.imgK, track: S.track, lead: S.lead, frame: S.frame, fx: S.fx, fxOpt: S.fxOpt, key: S.key, feel: S.feel, scenes: S.scenes, theme: S.theme, font: S.font || null, motion: S.motion, lbar: S.lbar, total: S.total, assets: S.assets, bgm: S.bgm });
 
 // ---------- 초기화 ----------
 const tplFmt = t => t.fmt || fmtOfText(t.text);
@@ -36,7 +36,7 @@ function init() {
   const oldDemo = f => f && f.product === '마데카 크림' && f.price === '76090' && (f.comps || [])[0] && f.comps[0].name === '크림 50ml';
   loadForm(saved && saved.form && !oldDemo(saved.form) ? saved.form : {});
   try { $('aiKey').value = localStorage.getItem('hfm.key') || ''; } catch (_) { }
-  bindUI(); bindQuick(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('build');
+  bindSplitters(); bindUI(); bindQuick(); bindTong(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('build');
   $('appVer').textContent = 'v' + APP_VERSION + (APP ? ' · 윈도우 앱' : '');
   if (APP) { document.body.classList.add('app'); APP.info().then(i => { APP_INFO = i; }).catch(() => { }); }
   loadFonts().then(() => { S.dirty = true; lastWarnKey = null; buildDesignDDs(); thumbsSoon(); });
@@ -83,7 +83,7 @@ function projFromText(text) {
   const fmt = normFmt(st.형식);
   const p = { scenes: r.scenes, theme: themeFromName(st.테마) || 'ns', font: fontFromName(st.폰트) || null, motion: MOTIONS[st.모션] || 'pop',
     lbar: LBAR_NAMES[st.L바] || FORMATS[fmt].lbar, feel: FEEL_NAMES.includes(st.느낌) ? st.느낌 : '보통', key: /^#[0-9a-f]{6}$/i.test(st.키컬러 || '') ? st.키컬러 : S.key,
-    fx: parseFxList(st.효과), assets: S.assets, bgm: S.bgm, fmt, head: st.머리 || '', foot: st.꼬리 || '', dan: st.단서 || '', imgK: parseFloat(st.이미지크기) || 100, track: parseFloat(st.자간) || 0, lead: parseFloat(st.행간) || 100, frame: TONG_FRAMES.includes(st.틀) ? st.틀 : '없음' };
+    fx: parseFxSpec(st.효과).list, fxOpt: parseFxSpec(st.효과).opt, assets: S.assets, bgm: S.bgm, fmt, head: st.머리 || '', foot: st.꼬리 || '', dan: st.단서 || '', danBg: st.단서배경 !== '없음', imgK: parseFloat(st.이미지크기) || 100, track: parseFloat(st.자간) || 0, lead: parseFloat(st.행간) || 100, frame: TONG_FRAMES.includes(st.틀) ? st.틀 : '없음' };
   if (fmt === '통강조') p.lbar = 'tong';
   p.total = computeTimeline(p.scenes, Math.min(FORMATS[fmt].max, parseFloat(st.길이) || FORMATS[fmt].dur)).total; return p;
 }
@@ -119,12 +119,15 @@ function makeDD(id, opt) {
   const dd = { items: [], value: DD[id] ? DD[id].value : null,
     setItems(items) {
       this.items = items; panel.innerHTML = '';
-      items.forEach(it => { const d = document.createElement('div'); d.className = 'ddItem'; d.dataset.v = it.v; d.title = it.label; d.appendChild(ddContent(it, 'list')); d.onclick = () => { host.classList.remove('open'); opt.onChange(it.v); }; panel.appendChild(d); });
+      items.forEach(it => {
+        if (it.group) { const g = document.createElement('div'); g.className = 'ddGroup'; g.textContent = it.group; panel.appendChild(g); return; }
+        const d = document.createElement('div'); d.className = 'ddItem'; d.dataset.v = it.v; d.title = it.label; d.appendChild(ddContent(it, 'list')); d.onclick = () => { host.classList.remove('open'); opt.onChange(it.v); }; panel.appendChild(d);
+      });
       this.set(this.value); return this;
     },
     set(v) {
-      this.value = v; const it = this.items.find(x => x.v === v) || this.items[0]; btn.innerHTML = ''; if (it) btn.appendChild(ddContent(it, 'btn'));
-      [...panel.children].forEach(c => c.classList.toggle('on', !!it && c.dataset.v === it.v));
+      this.value = v; const real = this.items.filter(x => !x.group), it = real.find(x => x.v === v) || real[0]; btn.innerHTML = ''; if (it) btn.appendChild(ddContent(it, 'btn'));
+      [...panel.children].forEach(c => c.classList.toggle('on', !!it && c.classList.contains('ddItem') && c.dataset.v === it.v));
     },
   };
   btn.onclick = e => {
@@ -142,12 +145,27 @@ function drawThemeThumb(c, id) {
   if (th.pal[0].stroke) { x.lineJoin = 'round'; x.lineWidth = 5; x.strokeStyle = th.pal[0].stroke; x.strokeText('특가', 96, 68); }
   x.fillStyle = th.pal[0].em; x.fillText('특가', 96, 68);
 }
-const themeItems = () => Object.entries(THEMES).map(([id, th]) => ({ v: id, label: th.name, draw: c => drawThemeThumb(c, id) }));
+// 테마·스타일을 분위기별로 묶어서 보여줌 (고르기 쉽게)
+const THEME_GROUPS = [
+  ['🔥 세일·특가', ['ns', 'blue', 'fire', 'salered', 'halfsale', 'impact', 'news', 'blackfriday']],
+  ['💎 고급·차분', ['purple', 'luxe', 'clean', 'mono', 'paper', 'aurora']],
+  ['🍬 밝고 귀엽게', ['spring', 'candy', 'citrus', 'popart', 'holo', 'sunset']],
+  ['🌿 계절·식품', ['fresh', 'natural', 'ocean', 'winter', 'hanga', 'celebrate']],
+  ['⚡ 에너지·테크', ['neon', 'speed', 'tech']],
+  ['🎨 맞춤', ['key']],
+];
+const themeGroupOf = id => { const g = THEME_GROUPS.find(([, ids]) => ids.includes(id)); return g ? g[0] : '기타'; };
+function grouped(list, groupOf) {
+  const out = [], order = [...THEME_GROUPS.map(g => g[0]), '기타'];
+  for (const name of order) { const its = list.filter(x => groupOf(x) === name); if (its.length) out.push({ group: name }, ...its); }
+  return out;
+}
+const themeItems = () => grouped(Object.entries(THEMES).map(([id, th]) => ({ v: id, label: th.name, draw: c => drawThemeThumb(c, id), _g: themeGroupOf(id) })), x => x._g);
 function buildDesignDDs() {
   setStage('wide');
   makeDD('ddStyle', { grid: true, onChange: pickStyle }).setItems([
     { v: '', label: '자동', sub: '상품명·사진 색에 맞춰', icon: '✨' }, { v: 'theme', label: '지금 테마 그대로', sub: '내가 고른 테마·폰트', icon: '🎯' },
-    ...Object.entries(STYLES).map(([id, st]) => ({ v: 'style:' + id, label: st.name, draw: c => drawStyleThumb(c, st.theme, st.font) }))]);
+    ...grouped(Object.entries(STYLES).map(([id, st]) => ({ v: 'style:' + id, label: st.name, draw: c => drawStyleThumb(c, st.theme, st.font), _g: themeGroupOf(st.theme) })), x => x._g)]);
   makeDD('ddTheme', { grid: true, onChange: v => { S.theme = v; $('fTheme').value = 'theme'; persist(); writeSettings(); toast(`테마를 '${THEMES[v].name}'(으)로 바꿨어요`); } }).setItems(themeItems());
   makeDD('ddFont', { onChange: v => { S.font = v; writeSettings(); } }).setItems([
     { v: '', label: '테마 기본 폰트', font: { family: "'Noto Sans KR', sans-serif", weight: 700 }, sample: '테마에 맞춰 자동' },
@@ -187,6 +205,20 @@ function updateStyleNow() {
 function buildFxChips() {
   $('fxGlobal').innerHTML = EFFECT_NAMES.map(n => `<button data-n="${n}">${n}</button>`).join('');
   $('fxGlobal').onclick = e => { const n = e.target.dataset.n; if (!n) return; S.fx = S.fx.includes(n) ? S.fx.filter(x => x !== n) : [...S.fx, n]; writeSettings(); };
+  $('fxOpts').onchange = e => {
+    const el = e.target, n = el.closest('[data-f]') && el.closest('[data-f]').dataset.f; if (!n) return;
+    const o = Object.assign({}, S.fxOpt[n] || {}); const k = el.dataset.o; o[k] = k === 'pos' ? el.value : +el.value;
+    if ((o.pos || '전체') === '전체' && (o.speed || 1) === 1 && !o.rep) delete S.fxOpt[n]; else S.fxOpt[n] = o;
+    writeSettings();
+  };
+}
+// 고른 전체 효과마다: 위치 · 속도 · 반복 횟수
+function renderFxOpts() {
+  const box = $('fxOpts'), key = S.fx.map(n => n + JSON.stringify(S.fxOpt[n] || {})).join('|'); if (box.dataset.key === key) return; box.dataset.key = key;
+  if (!S.fx.length) { box.innerHTML = ''; return; }
+  const sel = (k, list, cur) => `<select data-o="${k}" title="${k === 'pos' ? '위치' : k === 'speed' ? '속도' : '반복'}">${list.map(([v, l]) => `<option value="${v}" ${String(v) === String(cur) ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+  box.innerHTML = '<div class="fxHead"><span>효과</span><span>위치</span><span>속도</span><span>반복</span></div>' + S.fx.map(n => { const o = S.fxOpt[n] || {};
+    return `<div class="fxRow" data-f="${n}"><b>${n}</b>${sel('pos', FX_POS.map(p => [p, p]), o.pos || '전체')}${sel('speed', FX_SPEEDS, o.speed || 1)}${sel('rep', FX_REPS, o.rep || 0)}</div>`; }).join('');
 }
 function persist() { S.texts[S.fmt] = $('sb').value; try { localStorage.setItem('hfm.v1', JSON.stringify({ text: $('sb').value, texts: S.texts, fmt: S.fmt, form: readForm() })); } catch (_) { } }
 
@@ -225,9 +257,11 @@ function loadForm(f) {
   if (f.theme === '__img') $('fTheme').value = ''; // v7의 '상품 이미지 색'은 v8에서 '자동'에 합쳐짐
   if (!['product', 'typo'].includes($('fRecipe').value)) $('fRecipe').value = 'product';
   if (!$('fPriceMotion').value) $('fPriceMotion').value = '자동';
+  // '더 넣기'에 채운 칸이 있으면 펼쳐 둬서 숨은 값이 없게
+  if (['hook', 'pricePre', 'priceNote', 'unit', 'qty', 'record', 'urgent', 'dan'].some(k => String(f[k] || '').trim())) $('quickMore').open = true;
   syncRecipe();
 }
-const RECIPE_HINT = { product: '훅 → 상품 → 포인트 → 구성 → 가격 → 한정 순서로 상품을 차근차근 소개해요. (하드필러식)', typo: '큰 글자를 1~2초마다 바꿔 치며 할인율·최저가를 강하게 박아요. (예전 인서트 탭 방식)' };
+const RECIPE_HINT = { product: '상품 → 포인트 → 구성 → 가격 순서로 차근차근 소개해요.', typo: '큰 글자를 1~2초마다 바꿔 치며 할인율·가격을 세게 박아요.' };
 function syncRecipe() { const v = $('fRecipe').value || 'product'; [...$('recipeSeg').children].forEach(b => b.classList.toggle('on', b.dataset.v === v)); $('recipeHint').textContent = RECIPE_HINT[v]; }
 function renderComps() {
   const box = $('fComps'); box.innerHTML = ''; const imgs = Object.keys(S.assets);
@@ -356,8 +390,9 @@ function bindQuick() {
   $('fPerScene').onchange = persist; updateCalc();
   // 단서 자막은 쓰는 대로 화면에 반영 (스토리보드 첫 줄 '단서:'). 자동 연출 칸과 직접 만들기 칸은 같은 값
   let danT = 0;
-  ['fDan', 'bDan'].forEach(id => { const el = $(id); const apply = () => { clearTimeout(danT); const v = el.value.trim(); if (v === S.dan) return; S.dan = v; writeSettings(); };
+  ['fDan', 'bDan', 'tDan'].forEach(id => { const el = $(id); const apply = () => { clearTimeout(danT); const v = el.value.trim(); if (v === S.dan) return; S.dan = v; writeSettings(); };
     el.addEventListener('input', () => { clearTimeout(danT); danT = setTimeout(apply, 400); }); el.addEventListener('change', apply); });
+  ['fDanBg', 'bDanBg', 'tDanBg'].forEach(id => $(id).onchange = e => { S.danBg = e.target.checked; writeSettings(); });
   $('recipeSeg').onclick = e => { const b = e.target.closest('button'); if (!b) return; $('fRecipe').value = b.dataset.v; syncRecipe(); persist(); };
   $('fPriceMotion').onchange = persist;
   $('dirBtn').onclick = () => runDirector(false);
@@ -375,7 +410,7 @@ function parseNow() {
   const st = r.settings;
   S.fmt = normFmt(st.형식);
   S.head = st.머리 || ''; S.foot = st.꼬리 || ''; S.frame = TONG_FRAMES.includes(st.틀) ? st.틀 : '없음';
-  S.dan = st.단서 || ''; S.imgK = clamp(parseFloat(st.이미지크기) || 100, 30, 300);
+  S.dan = st.단서 || ''; S.danBg = st.단서배경 !== '없음'; S.imgK = clamp(parseFloat(st.이미지크기) || 100, 30, 300);
   S.track = clamp(parseFloat(st.자간) || 0, -20, 60); S.lead = clamp(parseFloat(st.행간) || 100, 50, 220);
   const th = themeFromName(st.테마); if (th) S.theme = th;
   if (st.길이 && !isNaN(parseFloat(st.길이))) S.dur = parseFloat(st.길이);
@@ -383,7 +418,7 @@ function parseNow() {
   if (st.폰트 !== undefined) S.font = fontFromName(st.폰트) || '';
   if (st.모션 && MOTIONS[st.모션]) S.motion = MOTIONS[st.모션];
   S.feel = FEEL_NAMES.includes(st.느낌) ? st.느낌 : '보통';
-  S.fx = parseFxList(st.효과);
+  { const fs = parseFxSpec(st.효과); S.fx = fs.list; S.fxOpt = fs.opt; }
   if (/^#[0-9a-f]{6}$/i.test(st.키컬러 || '')) { const nk = st.키컬러.toLowerCase(); if (nk !== THEMES.key.hex) { S.key = nk; setKeyColor(nk); buildThemeGrid(); } S.key = nk; refreshKeyUI(); }
   S.scenes = r.scenes; S.errors = r.errors.slice();
   const mx = FORMATS[S.fmt].max; if (S.dur > mx) { S.dur = mx; S.errors.push(`${S.fmt}는 최대 ${mx}초라서 ${mx}초로 맞췄어요.`); }
@@ -395,11 +430,11 @@ function parseNow() {
   if (missing.size) S.errors.push(`아직 올리지 않은 이미지: ${[...missing].join(', ')} ('🖼 소스' 탭에서 올리고 이름을 맞춰 주세요. 없으면 자리 표시로 나와요.)`);
   $('errs').textContent = S.errors.join('\n');
   $('sceneCount').textContent = `${S.scenes.length}장면 · ${S.total.toFixed(1)}초`;
-  syncControls(); buildTimeline(); if (S.sel >= S.scenes.length) S.sel = -1; buildInspector(); buildStack(); thumbsSoon(); fontsSoon();
+  syncControls(); buildTimeline(); if (S.sel >= S.scenes.length) S.sel = -1; buildInspector(); buildStack(); buildTongPane(); thumbsSoon(); fontsSoon();
   S.t = Math.min(S.t, S.total); S.dirty = true; persist();
 }
 
-const LBAR_CHK = {}; let chkFmt = null;
+const LBAR_CHK = {}; let chkFmt = null, tongPaneFmt = null;
 function syncControls() {
   // L바 체크는 형식별로 따로 기억 (통강조는 처음엔 세로 화면 그대로, 체크하면 L바 안에 넣어 보기)
   if (S.fmt !== chkFmt) { if (chkFmt) LBAR_CHK[chkFmt] = $('lbarChk').checked; $('lbarChk').checked = LBAR_CHK[S.fmt] ?? S.fmt !== '통강조'; chkFmt = S.fmt; S.dirty = true; }
@@ -408,12 +443,15 @@ function syncControls() {
   document.body.classList.toggle('tong', tong);
   if (DD.ddTheme) DD.ddTheme.set(S.theme); if (DD.ddFont) DD.ddFont.set(S.font || ''); if (DD.ddStyle) DD.ddStyle.set($('fTheme').value || '');
   $('feelSel').value = S.feel; $('motionSel').value = S.motion; $('lbarSel').value = tong ? 'full' : S.lbar; $('frameSel').value = S.frame || '없음';
-  [...$('fxGlobal').children].forEach(b => b.classList.toggle('on', S.fx.includes(b.dataset.n)));
+  [...$('fxGlobal').children].forEach(b => b.classList.toggle('on', S.fx.includes(b.dataset.n))); renderFxOpts();
   const mx = FORMATS[S.fmt].max; $('durRange').max = mx; $('durNum').max = mx; $('durRange').min = tong ? 3 : 5;
   $('durRange').value = S.dur; $('durNum').value = S.dur;
   $('trackK').value = S.track; $('trackKv').textContent = S.track; $('leadK').value = S.lead; $('leadKv').textContent = S.lead + '%';
   if (palFmt !== (tong ? 'tong' : 'wide')) buildPalette();
-  for (const id of ['fDan', 'bDan']) if (document.activeElement !== $(id)) $(id).value = S.dan || '';
+  for (const id of ['fDan', 'bDan', 'tDan']) if (document.activeElement !== $(id)) $(id).value = S.dan || '';
+  for (const id of ['fDanBg', 'bDanBg', 'tDanBg']) $(id).checked = S.danBg;
+  if (tongPaneFmt !== tong) { tongPaneFmt = tong; if (tong && (PANE === 'build' || PANE === 'quick')) showPane('tong'); else if (!tong && PANE === 'tong') showPane('build'); }
+  syncTong();
   $('imgK').value = S.imgK; $('imgKv').textContent = S.imgK + '%';
   $('fmtBadge').textContent = S.fmt; $('lbarLbl').textContent = tong ? 'L바에 넣어 보기' : 'L바 보기';
   $('thumbs').classList.toggle('tall', tong); updateStyleNow();
@@ -434,11 +472,12 @@ function writeSettings() {
   if (S.fmt === '통강조') { if (S.head) s.머리 = S.head; if (S.foot) s.꼬리 = S.foot; if (S.frame && S.frame !== '없음') s.틀 = S.frame; }
   else s.L바 = LBAR_LABEL[S.lbar];
   if (S.dan) s.단서 = S.dan;
+  if (!S.danBg) s.단서배경 = '없음';
   if (S.imgK !== 100) s.이미지크기 = String(S.imgK);
   if (S.track) s.자간 = String(S.track);
   if (S.lead !== 100) s.행간 = String(S.lead);
   if (S.theme === 'key') s.키컬러 = S.key;
-  if (S.fx.length) s.효과 = S.fx.join('+');
+  if (S.fx.length) s.효과 = serializeFx(S.fx, S.fxOpt);
   if (S.font) s.폰트 = FONTS[S.font].name.split(' ')[0];
   const motionName = Object.keys(MOTIONS).find(k => MOTIONS[k] === S.motion); if (S.motion !== 'pop') s.모션 = motionName;
   if (S.feel !== '보통') s.느낌 = S.feel;
@@ -556,7 +595,8 @@ function buildSceneText() {
       <div class="field"><label>할인 <span class="dim">배지</span></label><input type="text" data-k="할인" value="${esc(o.할인)}" placeholder="23%"></div>
       <div class="field"><label>숫자 연출</label><select data-k="가격모션" data-auto="굴리기"><option value="굴리기">굴리기</option><option value="내려가기" ${o.가격모션 === '내려가기' ? 'selected' : ''}>정가→내려가기</option></select></div>
     </div>` : ''}
-    <div class="field"><label>단서 자막 <span class="dim">이 장면만 · 비우면 공통 · 없음 = 빼기</span></label><input type="text" data-k="단서" value="${esc(o.단서)}" placeholder="${esc(S.dan ? '공통: ' + S.dan : '예: 가격 기준 | NS 정상가 대비, 모바일 할인 별도')}"></div>
+    <div class="row3"><div class="field"><label>단서 자막 <span class="dim">이 장면만 · 비우면 공통 · 없음 = 빼기</span></label><input type="text" data-k="단서" value="${esc(o.단서)}" placeholder="${esc(S.dan ? '공통: ' + S.dan : '예: 가격 기준 | NS 정상가 대비, 모바일 할인 별도')}"></div>
+      <div class="field"><label>단서 글자 배경</label>${opt('단서배경', ['있음', '없음'], o.단서배경, '공통')}</div></div>
     <details class="scDesign" id="iDesign" ${open ? 'open' : ''}><summary>🎨 꾸미기 <span class="dim">배경 · 모션 · 전환 · 효과 (이 장면만)</span></summary>
       <div class="grid3">
         <div class="field"><label>배경</label>${opt('배경', ['1', '2', '3'], o.배경)}</div>
@@ -672,10 +712,116 @@ function showPane(p) {
   PANE = p;
   [...$('tabs').children].forEach(b => b.classList.toggle('on', b.dataset.p === p));
   document.querySelectorAll('.pane').forEach(n => n.classList.toggle('on', n.id === 'pane-' + p));
-  placeSceneCard();
+  placeSceneCard(); if (p === 'tong') buildTongPane();
 }
 // 장면 편집 칸과 장면 목록을 지금 선택에 맞게 다시 그림 (장면 꾸미기도 이제 왼쪽 편집 칸 안에 있음)
 function buildInspector() { buildSceneText(); buildStack(); }
+
+// ---------- 통강조 전용 간단 화면: 장면 2~3개 + 임팩트 모션 ----------
+const TONG_KINDS = [['badge', '배지'], ['typo', '타이포'], ['impact', '강조'], ['hook', '훅'], ['product', '상품'], ['price', '가격'], ['price↓', '할인가'], ['points', '포인트'], ['urgent', '한정']];
+const TONG_MAX = 3;
+let mOpen = -1, mRaf = 0;
+const escA = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+const motionNameOf = sc => (sc.opts.모션 && MOTIONS[sc.opts.모션]) ? sc.opts.모션 : '';
+function globalMotionName() { return Object.keys(MOTIONS).find(k => MOTIONS[k] === S.motion) || '팝'; }
+// 모션 미리보기: '특가!' 글자에 그 모션을 2.4초마다 반복해서 보여줌
+function drawMotionPreview(c, name, t) {
+  const g = c.getContext('2d'), cw = c.width, ch = c.height, id = MOTIONS[name] || 'pop';
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, cw, ch);
+  const bgG = g.createLinearGradient(0, 0, cw, ch); bgG.addColorStop(0, '#2a0b10'); bgG.addColorStop(1, '#5c0710'); g.fillStyle = bgG; g.fillRect(0, 0, cw, ch);
+  const cam = motionCam(id, t), k = cw / 1920 * 3.2;
+  g.save(); if (cam) { g.translate(cw / 2 + cam.dx * k, ch / 2 + cam.dy * k); g.rotate(cam.rot || 0); g.scale(cam.s, cam.s); g.translate(-cw / 2, -ch / 2); }
+  const tk = TRACK_ADD; TRACK_ADD = 0;
+  try { drawText(g, '*특가*!', { x: cw / 2, y: ch / 2, size: ch * .46, font: FONTS.blackhan, color: '#ffffff', em: '#ffd23f', motion: id, t, delay: .12, stroke: '#000', strokeW: ch * .05 }); } catch (_) { }
+  TRACK_ADD = tk; g.restore();
+}
+function motionLoop() {
+  cancelAnimationFrame(mRaf);
+  const cs = [...document.querySelectorAll('#tScenes canvas[data-m]')].filter(c => c.offsetParent);
+  if (!cs.length || S.playing && false) { mRaf = 0; return; }
+  const t = (performance.now() / 1000) % 2.4;
+  setFeel(S.feel); cs.forEach(c => drawMotionPreview(c, c.dataset.m, t));
+  mRaf = requestAnimationFrame(motionLoop);
+}
+function tongKindOf(sc) { return sc.type === 'price' && sc.opts.가격모션 === '내려가기' ? 'price↓' : sc.type; }
+function buildTongPane() {
+  const box = $('tScenes'); if (!box || S.fmt !== '통강조') return;
+  const ae = document.activeElement;
+  const key = [S.scenes.length, mOpen, ...S.scenes.map(s => tongKindOf(s) + ':' + (s.opts.모션 || '') + ':' + (s.opts.이미지 || ''))].join('|') + '|' + Object.keys(S.assets).join(',');
+  const typing = ae && box.contains(ae) && ae.matches('textarea, input[type=text]');
+  // 구조가 같으면 글자 칸만 맞춤 (쓰는 중인 칸은 그대로)
+  if (box.dataset.key === key || typing) {
+    box.querySelectorAll('.tScene').forEach((card, i) => { const sc = S.scenes[i]; if (!sc) return; card.classList.toggle('sel', i === S.sel); const du = card.querySelector('.du'); if (du) du.textContent = sc.dur.toFixed(1) + '초';
+      card.querySelectorAll('textarea, input[type=text]').forEach(el => { if (el === ae) return; if (el.tagName === 'TEXTAREA') el.value = sc.lines.join('\n'); else if (el.dataset.k) el.value = sc.opts[el.dataset.k] || ''; }); });
+    if (box.dataset.key === key) return;
+    if (typing) return;
+  }
+  box.dataset.key = key;
+  const imgs = Object.keys(S.assets), gm = globalMotionName();
+  box.innerHTML = S.scenes.slice(0, TONG_MAX + 2).map((sc, i) => {
+    const kind = tongKindOf(sc), mn = motionNameOf(sc), shown = mn || gm;
+    const kinds = TONG_KINDS.map(([v, n]) => `<button type="button" data-kind="${v}" class="${v === kind ? 'on' : ''}">${n}</button>`).join('');
+    const extra = sc.type === 'price' ? `<div class="row2"><div class="field"><label>정가 <span class="dim">취소선</span></label><input type="text" data-k="정가" value="${escA(sc.opts.정가)}" placeholder="59,000원"></div><div class="field"><label>할인 <span class="dim">배지</span></label><input type="text" data-k="할인" value="${escA(sc.opts.할인)}" placeholder="32%"></div></div>`
+      : sc.type === 'product' ? `<div class="field"><label>상품 이미지</label><select data-img><option value="">없음</option>${imgs.map(n => `<option ${n === sc.opts.이미지 ? 'selected' : ''}>${escA(n)}</option>`).join('')}</select></div>` : '';
+    const grid = mOpen === i ? `<div class="mGrid">${[['⚡ 임팩트 (새로)', IMPACT_MOTIONS], ['기본 모션', Object.keys(MOTIONS).filter(k => !IMPACT_MOTIONS.includes(k))]].map(([g, list]) => `<div class="mGroup">${g}</div>` + list.map(m => `<div class="mCard ${m === shown ? 'on' : ''}" data-pick="${m}"><canvas data-m="${m}" width="240" height="128"></canvas><b>${m}</b><small>${MOTION_INFO[m] || ''}</small></div>`).join('')).join('')}</div>` : '';
+    return `<div class="card tScene ${i === S.sel ? 'sel' : ''}" data-i="${i}">
+      <h3><span class="num">${i + 1}</span>${i === 0 ? '첫 장면 · 눈길 끌기' : i === 1 ? '둘째 장면 · 소구점' : '장면 ' + (i + 1)} <span class="badge du">${sc.dur.toFixed(1)}초</span><button type="button" class="ghost del" data-del title="이 장면 빼기">✕</button></h3>
+      <div class="tKinds">${kinds}</div>
+      <div class="field"><textarea placeholder="${escA(LINE_GUIDE[sc.type] || '문구를 써 주세요')}">${escA(sc.lines.join('\n'))}</textarea><span class="hint">한 줄 = 화면의 한 줄 · <code>*별표*</code>는 포인트 색</span></div>
+      ${extra}
+      <div class="field" style="margin-bottom:0"><label>모션</label>
+        <button type="button" class="mNow ${mOpen === i ? 'open' : ''}" data-mtoggle><canvas data-m="${shown}" width="192" height="104"></canvas><span><b>${shown}${mn ? '' : ' <span class="dim">(기본)</span>'}</b><small>${MOTION_INFO[shown] || ''} · 눌러서 바꾸기</small></span></button>
+        ${grid}</div>
+    </div>`;
+  }).join('') + (S.scenes.length < TONG_MAX ? `<button type="button" class="tAdd" id="tAdd">＋ 장면 추가 ${S.scenes.length ? '<span class="dim">(통강조는 2개가 알맞아요)</span>' : ''}</button>` : '');
+  box.querySelectorAll('.tScene').forEach(card => bindTongCard(card, +card.dataset.i));
+  const add = $('tAdd'); if (add) add.onclick = () => tongAddScene(S.scenes.length === 0 ? 'badge' : 'price');
+  if (mOpen >= 0) { const g = box.querySelector('.mGrid'); if (g) setTimeout(() => g.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 30); }
+  motionLoop();
+}
+function bindTongCard(card, i) {
+  const sc = () => S.scenes[i];
+  card.addEventListener('focusin', () => { if (S.sel !== i && S.scenes[i]) { S.sel = i; S.t = S.scenes[i].start + Math.min(S.scenes[i].dur * .6, 1.6); S.dirty = true; buildTimeline(); document.querySelectorAll('#tScenes .tScene').forEach((c, k) => c.classList.toggle('sel', k === i)); } });
+  card.querySelector('.tKinds').onclick = e => {
+    const b = e.target.closest('button'); const c = sc(); if (!b || !c) return; const v = b.dataset.kind;
+    c.type = v === 'price↓' ? 'price' : v; c.label = BLOCK_LABEL[c.type];
+    if (v === 'price↓') c.opts.가격모션 = '내려가기'; else delete c.opts.가격모션;
+    if (c.type === 'product' && !c.opts.이미지) { const a = Object.keys(S.assets).find(n => n !== '로고'); if (a) c.opts.이미지 = a; }
+    S.sel = i; writeScene(i);
+  };
+  const ta = card.querySelector('textarea'); let tm = 0;
+  const commit = () => { clearTimeout(tm); const c = sc(); if (!c) return; const nl = ta.value.split('\n').map(x => x.trim()).filter(Boolean); if (nl.join('\n') === c.lines.join('\n')) return; c.lines = nl; writeScene(i); };
+  ta.onfocus = () => { S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false; };
+  ta.oninput = () => { clearTimeout(tm); tm = setTimeout(commit, 220); }; ta.onblur = commit;
+  card.querySelectorAll('input[data-k]').forEach(el => { let t2 = 0; const k = el.dataset.k;
+    const apply = () => { clearTimeout(t2); const c = sc(); if (!c) return; const v = el.value.trim(); if ((c.opts[k] || '') === v) return; if (v) c.opts[k] = v; else delete c.opts[k]; writeScene(i); };
+    el.oninput = () => { clearTimeout(t2); t2 = setTimeout(apply, 350); }; el.onchange = apply; });
+  const im = card.querySelector('select[data-img]'); if (im) im.onchange = () => { const c = sc(); if (!c) return; if (im.value) c.opts.이미지 = im.value; else delete c.opts.이미지; writeScene(i); };
+  card.querySelector('[data-mtoggle]').onclick = () => { mOpen = mOpen === i ? -1 : i; S.sel = i; buildTongPane(); };
+  card.querySelectorAll('[data-pick]').forEach(el => el.onclick = () => { const c = sc(); if (!c) return; const m = el.dataset.pick; if (m === globalMotionName() && !c.opts.모션) { mOpen = -1; buildTongPane(); return; } c.opts.모션 = m; mOpen = -1; S.sel = i; S.t = c.start + .02; S.dirty = true; writeScene(i); toast(`${i + 1}번 장면 모션: ${m}`); });
+  card.querySelector('[data-del]').onclick = () => { const c = sc(); if (!c) return; const lines = $('sb').value.split('\n'); S.hist.push($('sb').value); $('undoBtn').disabled = false; lines.splice(c.lineNo, 1); $('sb').value = lines.join('\n'); S.sel = -1; mOpen = -1; parseNow(); toast('장면을 뺐어요', true); };
+}
+function tongAddScene(type) {
+  S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false;
+  const o = type === 'price' ? {} : { 모션: '쾅' };
+  $('sb').value = $('sb').value.replace(/\s*$/, '') + '\n' + serializeScene({ label: BLOCK_LABEL[type], lines: [], opts: o }).trim();
+  mOpen = -1; parseNow(); const i = S.scenes.length - 1; S.sel = i; S.t = S.scenes[i].start + .8; S.dirty = true; buildTimeline(); buildTongPane();
+  setTimeout(() => { const t = document.querySelector(`#tScenes .tScene[data-i="${i}"] textarea`); if (t) { t.focus(); t.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }, 30);
+}
+function bindTong() {
+  // 한 번에 채우기 칸은 자동 연출의 상품 정보 칸과 같은 값
+  const MAP = { tqProduct: 'fProduct', tqPrice: 'fPrice', tqList: 'fListPrice', tqHook: 'fHook' };
+  for (const [a, b] of Object.entries(MAP)) $(a).addEventListener('input', () => { $(b).value = $(a).value; $(b).dispatchEvent(new Event('input')); });
+  $('tqGo').onclick = () => runDirector(false); $('tqShuffle').onclick = () => runDirector(true);
+  let tt = 0;
+  const band = () => { clearTimeout(tt); const h = $('tHead').value.trim(), f = $('tFoot').value.trim(); $('fTongHead').value = h; $('fTongFoot').value = f; persist(); if (h === S.head && f === S.foot) return; S.head = h; S.foot = f; writeSettings(); };
+  ['tHead', 'tFoot'].forEach(id => { $(id).addEventListener('input', () => { clearTimeout(tt); tt = setTimeout(band, 400); }); $(id).addEventListener('change', band); });
+}
+function syncTong() {
+  const MAP = { tqProduct: 'fProduct', tqPrice: 'fPrice', tqList: 'fListPrice', tqHook: 'fHook' };
+  for (const [a, b] of Object.entries(MAP)) if (document.activeElement !== $(a)) $(a).value = $(b).value;
+  if (document.activeElement !== $('tHead')) $('tHead').value = S.head || ''; if (document.activeElement !== $('tFoot')) $('tFoot').value = S.foot || '';
+}
 
 // ---------- 장면 썸네일 + 끌어서 순서 바꾸기 ----------
 // to = 끼워 넣을 자리(0..n, 옮기기 전 기준)
@@ -707,7 +853,7 @@ async function buildThumbs() {
     const c = document.createElement('canvas'); c.width = tw; c.height = th2;
     d.innerHTML = `<div class="txt"></div><div class="cap"><span class="no">${i + 1}</span>${BLOCK_LABEL[sc.type]}<small>${sc.dur.toFixed(1)}초</small></div>`;
     d.insertBefore(c, d.firstChild); d.querySelector('.txt').textContent = sceneText(sc);
-    d.onclick = () => { if (PANE !== 'build' && PANE !== 'board') showPane('build'); selectScene(i); revealCard(); };
+    d.onclick = () => { if (S.fmt === '통강조') { if (PANE !== 'tong' && PANE !== 'board') showPane('tong'); selectScene(i); buildTongPane(); const c = document.querySelector(`#tScenes .tScene[data-i="${i}"]`); if (c && PANE === 'tong') c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); return; } if (PANE !== 'build' && PANE !== 'board') showPane('build'); selectScene(i); revealCard(); };
     d.ondragstart = e => { dragFrom = i; d.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) { } };
     d.ondragend = () => { dragFrom = -1; box.querySelectorAll('.thumb').forEach(t => t.classList.remove('dragging', 'dropL', 'dropR')); };
     d.ondragover = e => { if (dragFrom < 0) return; e.preventDefault(); const r = d.getBoundingClientRect(); const right = e.clientX > r.left + r.width / 2;
@@ -727,7 +873,34 @@ async function buildThumbs() {
   S.dirty = true; lastWarnKey = null;
 }
 // 고른 장면의 편집 칸이 왼쪽 목록에서 보이게 (세로 한 줄 화면에서는 스크롤하지 않음)
-function revealCard() { setTimeout(() => { const c = $('sceneCard'); if (!c.hidden && c.parentNode === $('stack') && matchMedia('(min-width:1281px)').matches) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 40); }
+// ---------- 칸 너비 조절 (왼쪽 · 가운데 · 오른쪽) ----------
+const COLS_KEY = 'hfm.cols', COLS_DEF = { l: 400, r: 320 };
+function colsDefault() { const w = innerWidth; return w < 1280 ? { l: 340, r: 280 } : w < 1500 ? { l: 370, r: 300 } : { ...COLS_DEF }; }
+function applyCols(c, save) {
+  const main = document.querySelector('main'), avail = Math.max(1000, innerWidth) - 36 - 28, minC = 380;
+  c.l = clamp(c.l, 280, 640); c.r = clamp(c.r, 250, 520);
+  const over = c.l + c.r + minC - avail; if (over > 0) { const k = (c.l + c.r - over) / (c.l + c.r); c.l = Math.max(280, Math.round(c.l * k)); c.r = Math.max(250, Math.round(c.r * k)); }
+  main.style.setProperty('--lw', c.l + 'px'); main.style.setProperty('--rw', c.r + 'px'); COLS = c;
+  if (save) try { localStorage.setItem(COLS_KEY, JSON.stringify(c)); } catch (_) { }
+}
+let COLS = null;
+function bindSplitters() {
+  let saved = null; try { saved = JSON.parse(localStorage.getItem(COLS_KEY) || 'null'); } catch (_) { }
+  applyCols(saved && saved.l ? saved : colsDefault());
+  addEventListener('resize', () => applyCols({ ...COLS }));
+  for (const [id, side] of [['splitL', 'l'], ['splitR', 'r']]) {
+    const el = $(id); if (!el) continue;
+    el.addEventListener('pointerdown', ev => {
+      ev.preventDefault(); el.setPointerCapture(ev.pointerId); el.classList.add('on'); document.body.classList.add('resizing');
+      const x0 = ev.clientX, c0 = { ...COLS };
+      const move = e => { const d = e.clientX - x0; applyCols(side === 'l' ? { l: c0.l + d, r: c0.r } : { l: c0.l, r: c0.r - d }); };
+      const up = () => { el.releasePointerCapture(ev.pointerId); el.classList.remove('on'); document.body.classList.remove('resizing'); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); applyCols({ ...COLS }, true); thumbsSoon(); };
+      el.addEventListener('pointermove', move); el.addEventListener('pointerup', up);
+    });
+    el.addEventListener('dblclick', () => { applyCols(colsDefault(), true); try { localStorage.removeItem(COLS_KEY); } catch (_) { } });
+  }
+}
+function revealCard() { setTimeout(() => { const c = $('sceneCard'); if (!c.hidden && c.parentNode === $('stack')) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 40); }
 function markThumbs() { [...$('thumbs').querySelectorAll('.thumb')].forEach((t, k) => t.classList.toggle('sel', k === S.sel)); }
 
 // ---------- 키컬러 ----------

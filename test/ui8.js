@@ -48,17 +48,20 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.evaluate(() => { setText('형식: 통강조 / 길이: 15\n[배지] 방송 / *단독*\n[가격] 단, / 9,900원'); });
   await page.waitForTimeout(300);
   console.log('tong clamp:', await page.evaluate(() => [S.dur, S.total.toFixed(2), S.errors.join(' | ')]));
-  await page.click('#palette button[data-t=typo]'); await page.waitForTimeout(200); await page.keyboard.type('(작게)오늘만\n*반값*'); await page.waitForTimeout(500);
+  // v9: 통강조는 전용 화면(⚡ 통강조 만들기)에서 장면을 더하고 종류를 바꿈
+  await page.click('#tAdd'); await page.waitForTimeout(300);
+  await page.click('#tScenes .tScene[data-i="2"] .tKinds button[data-kind="typo"]'); await page.waitForTimeout(300);
+  await page.fill('#tScenes .tScene[data-i="2"] textarea', '(작게)오늘만\n*반값*'); await page.waitForTimeout(500);
   console.log('tong typo:', (await page.inputValue('#sb')).split('\n').pop());
   await page.screenshot({ path: out + '/v7_tong.png' });
   console.log('palette tong:', (await page.$$eval('#palette button b', a => a.map(x => x.textContent))).join(','));
   // 자동 연출 통강조 2장면
-  await page.click('#tabs button[data-p=quick]'); await page.fill('#fProduct', '마데카 크림'); await page.fill('#fPrice', '39900'); await page.fill('#fPoints', '흡수 빠름\n끈적임 없음');
-  await page.click('#dirBtn'); await page.waitForTimeout(500);
+  await page.fill('#tqProduct', '마데카 크림'); await page.fill('#tqPrice', '39900'); await page.evaluate(() => { $('fPoints').value = '흡수 빠름\n끈적임 없음'; });
+  await page.click('#tqGo'); await page.waitForTimeout(500);
   console.log('tong direct:', await page.evaluate(() => [S.scenes.map(s => s.type).join(','), S.total.toFixed(1)]));
   await page.click('#fmtSeg button[data-v=하드필러]'); await page.waitForTimeout(400);
   console.log('back to hard:', await page.evaluate(() => S.scenes.length));
-  await page.click('#dirBtn'); await page.waitForTimeout(500);
+  await page.click('#tabs button[data-p=quick]'); await page.click('#dirBtn'); await page.waitForTimeout(500);
   console.log('hard direct types:', await page.evaluate(() => S.scenes.map(s => s.type).join(',')));
   await page.click('#recipeSeg button[data-v=typo]'); await page.waitForTimeout(200); await page.click('#dirBtn'); await page.waitForTimeout(500);
   console.log('typo recipe direct:', await page.evaluate(() => S.scenes.map(s => s.type + ':' + sceneText(s)).join(' | ')));

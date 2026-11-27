@@ -107,6 +107,17 @@ function fitSize(ctx, text, font, size, maxW, tracking = 0) {
         motion:'pop'|'type'|'slide'|'stamp'|'blur'|'none', t(로컬시간), delay, stagger, dur, exit(0..1), maxW, tracking,
         emBox(강조 배경박스 색), emBoxText, alpha, label }
 */
+// v9 임팩트 모션: [글자 사이 간격, 등장 시간]
+const MOTION_TIMING = { slam: [.07, .22], punch: [0, .5], shake: [.03, .3], heartbeat: [.03, .32], jelly: [.04, .5], quake: [0, .2], strobe: [.02, .12], slot: [.08, .6], scatter: [.015, .6], twister: [.03, .6], swipe: [.025, .35], elastic: [.04, .6], blink: [.05, .45] };
+// 지진: 처음에 크게 흔들리고 2.2초마다 다시 흔들림
+function quakeAmp(t) { const ph = ((t % 2.2) + 2.2) % 2.2; return Math.exp(-Math.max(0, t - .2) * 2.2) + (t > 1.6 && ph > 1.6 ? Math.exp(-(ph - 1.6) * 6) * .6 : 0); }
+// 장면 전체를 흔들거나 튕기는 카메라 움직임 (글자 모션과 같이 씀)
+function motionCam(motion, lt) {
+  if (motion === 'quake') { const q = quakeAmp(lt), k = Math.floor(lt * 30); return { dx: (rnd(k, 1) - .5) * 46 * q, dy: (rnd(k, 2) - .5) * 30 * q, rot: (rnd(k, 3) - .5) * .02 * q, s: 1 + .03 * q, bg: true }; }
+  if (motion === 'slam') { let q = 0; for (let k = 0; k < 6; k++) { const d = lt - (.22 + k * .07); if (d > 0) q += Math.exp(-d * 14); } const k = Math.floor(lt * 40); return { dx: (rnd(k, 4) - .5) * 26 * Math.min(1.4, q), dy: (rnd(k, 5) - .5) * 20 * Math.min(1.4, q), rot: 0, s: 1 }; }
+  if (motion === 'punch') { const ph = (((lt - .55) % 1.3) + 1.3) % 1.3; return { dx: 0, dy: 0, rot: 0, s: 1 + (lt > .5 && ph < .28 ? .04 * Math.sin(ph / .28 * Math.PI) : 0) }; }
+  return null;
+}
 function drawText(ctx, text, o) {
   const font = o.font;
   let size = o.size;
@@ -121,8 +132,9 @@ function drawText(ctx, text, o) {
   const n = L.chars.length;
   const motion = o.motion || 'pop';
   const t = o.t ?? 99, delay = o.delay || 0;
-  const stagger = o.stagger ?? (motion === 'type' ? 0.045 : motion === 'stamp' ? 0.0 : 0.035 * FEEL.stag);
-  const dur = o.dur ?? (motion === 'type' ? 0.01 : 0.38 * FEEL.dur);
+  const MT = MOTION_TIMING[motion];
+  const stagger = o.stagger ?? (MT ? MT[0] * (MT[0] ? FEEL.stag : 1) : motion === 'type' ? 0.045 : motion === 'stamp' ? 0.0 : 0.035 * FEEL.stag);
+  const dur = o.dur ?? (MT ? MT[1] * FEEL.dur : motion === 'type' ? 0.01 : 0.38 * FEEL.dur);
   const exit = o.exit || 0;
   const alphaAll = (o.alpha ?? 1) * (1 - exit);
   reportBox(x0, yC - size * 0.6, L.width, size * 1.2, o.label || plain(text));
@@ -148,7 +160,8 @@ function drawText(ctx, text, o) {
     if (c.ch === ' ') continue;
     const p = prog(t, delay + i * stagger, dur);
     if (p <= 0) continue;
-    let sc = 1, dy = 0, dx = 0, a = 1, blur = 0, rot = 0, sy = 1, glitch = 0, glow = o.glow || null;
+    let sc = 1, dy = 0, dx = 0, a = 1, blur = 0, rot = 0, sy = 1, sx = 1, sk = 0, fillOv = null, glitch = 0, glow = o.glow || null;
+    const st0 = delay + i * stagger, after = t - st0 - dur; // after: 글자가 자리 잡은 뒤 지난 시간
     switch (motion) {
       case 'pop': sc = Ease.outBack(p); a = clamp(p * (FEEL.rise ? 2 : 3)); dy = (1 - Ease.outCubic(p)) * size * FEEL.rise; break;
       case 'slide': { const e = Ease.outCubic(p); dy = (1 - e) * size * 0.6; a = e; break; }
@@ -170,6 +183,22 @@ function drawText(ctx, text, o) {
         const k = Math.floor(t * 18); a = p < 1 ? (rnd(i, k) > .45 ? 1 : .15) : (rnd(i, Math.floor(t * 6)) > .985 ? .55 : 1);
         glow = glow || (c.em ? (o.em || o.color) : o.color); break;
       }
+      // ----- v9 임팩트 모션 (통강조처럼 짧게 시선을 끄는 용도) -----
+      case 'slam': { sc = 1 + 2.6 * (1 - p * p); a = clamp(p * 5); if (p >= 1) sc = 1 + .14 * Math.exp(-after * 10) * Math.cos(after * 32); break; }
+      case 'punch': { const e = Ease.outBack(p); sc = lerp(.35, 1, e) * (1 + .2 * Math.sin(p * Math.PI)); a = clamp(p * 3);
+        if (p >= 1) { const ph = ((after % 1.3) + 1.3) % 1.3; sc *= 1 + .09 * (ph < .28 ? Math.sin(ph / .28 * Math.PI) : 0); } break; }
+      case 'shake': { sc = Ease.outBack(p); a = clamp(p * 3); const k = Math.floor(t * 22), amp = size * .035 * clamp(p * 2); dx = (rnd(i, k) - .5) * amp * 2; dy = (rnd(i, k + 5) - .5) * amp * 2; rot = (rnd(i, k + 9) - .5) * .09; break; }
+      case 'heartbeat': { sc = Ease.outBack(p); a = clamp(p * 3); if (p >= 1) { const ph = (after % .95) / .95; sc *= 1 + .11 * (Math.exp(-(((ph - .08) / .05) ** 2)) + .6 * Math.exp(-(((ph - .3) / .05) ** 2))); } break; }
+      case 'jelly': { a = clamp(p * 4); const k = Math.max(0, t - st0); let w = Math.exp(-k * 4.5) * Math.sin(k * 16) * .45; const ph = ((t - st0) % 2.4 + 2.4) % 2.4; if (k > 1.2 && ph < .8) w += Math.exp(-ph * 5) * Math.sin(ph * 18) * .22; sx = 1 + w; sy = 1 - w; sc = lerp(.6, 1, Ease.outCubic(p)); break; }
+      case 'quake': { const e = Ease.outCubic(p); sc = lerp(1.7, 1, e); a = clamp(p * 4); if (p >= 1) { const k = Math.floor(t * 30), q = quakeAmp(t); dx = (rnd(i, k) - .5) * size * .05 * q; rot = (rnd(i, k + 2) - .5) * .06 * q; } break; }
+      case 'strobe': { a = p > 0 ? 1 : 0; const k = t - st0, ph = ((k - .7) % 1.7 + 1.7) % 1.7, on = k < .7 || ph < .28;
+        if (on && Math.floor(t * 16) % 2) { fillOv = c.em ? '#ffffff' : (o.em || '#ffffff'); glow = fillOv; } break; }
+      case 'slot': { if (p < 1) { dy = ((((t * 7 + rnd(i, 4)) % 1) + 1) % 1 - .5) * size * 1.5; blur = 5; a = .85 * clamp(p * 6); } else dy = -Math.exp(-after * 12) * Math.cos(after * 30) * size * .14; break; }
+      case 'scatter': { const e = Ease.outCubic(p); dx = (rnd(i, 11) - .5) * size * 7 * (1 - e); dy = (rnd(i, 12) - .5) * size * 5 * (1 - e); rot = (rnd(i, 13) - .5) * 4 * (1 - e); sc = lerp(.4, 1, e); a = clamp(p * 2); break; }
+      case 'twister': { const e = Ease.outCubic(p), ang = (1 - e) * 6 + i * .6, r = (1 - e) * size * 2.4; dx = Math.cos(ang) * r; dy = Math.sin(ang) * r; rot = (1 - e) * -5; sc = lerp(.2, 1, e); a = clamp(p * 2.5); break; }
+      case 'swipe': { const e = Ease.outCubic(p); dx = (1 - e) * size * 3.2; sk = -(1 - e) * .7; a = clamp(p * 2); blur = (1 - e) * 10; break; }
+      case 'elastic': { const v = 1 + 1.6 * Math.exp(-p * 5) * Math.cos(p * 12); sx = v; sy = 1 / Math.sqrt(Math.max(.3, v)); a = clamp(p * 4); break; }
+      case 'blink': { if (p < 1) { const on = Math.floor(p * 8) % 2; a = on ? 1 : .08; if (on) fillOv = o.em || o.color; } else { const ph = ((after % 2.8) + 2.8) % 2.8; if (ph > 2.4) a = Math.floor(ph * 14) % 2 ? .2 : 1; } break; }
       default: break;
     }
     if (exit > 0) { sc *= 1 + exit * 0.15; }
@@ -177,10 +206,10 @@ function drawText(ctx, text, o) {
     ctx.save();
     ctx.globalAlpha = a * alphaAll;
     if (blur > 0.5) ctx.filter = `blur(${blur.toFixed(1)}px)`;
-    ctx.translate(cx + dx, yC + dy); ctx.rotate(rot); if (o.skew) ctx.transform(1, 0, o.skew, 1, 0, 0); ctx.scale(sc, sc * sy); ctx.translate(-cx, -yC);
+    ctx.translate(cx + dx, yC + dy); ctx.rotate(rot); if (o.skew || sk) ctx.transform(1, 0, (o.skew || 0) + sk, 1, 0, 0); ctx.scale(sc * sx, sc * sy); ctx.translate(-cx, -yC);
     setFont(ctx, font, size);
     ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    const fill = c.em ? (o.emBox ? (o.emBoxText || '#fff') : (o.em || o.color)) : o.color;
+    const fill = fillOv || (c.em ? (o.emBox ? (o.emBoxText || '#fff') : (o.em || o.color)) : o.color);
     if (o.shadow) {
       ctx.save(); ctx.fillStyle = o.shadow; const so = o.shadowOff || 1;
       if (so > 1 && o.stroke) { ctx.lineJoin = 'round'; ctx.strokeStyle = o.shadow; ctx.lineWidth = o.strokeW || size * .12; ctx.strokeText(c.ch, cx + size * .035 * so, baseY + size * .05 * so); }
