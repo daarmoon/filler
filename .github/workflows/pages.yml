@@ -19,6 +19,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: 트렌드 노트 받기 (있으면 빌드에 넣어 둠)
+        run: |
+          mkdir -p trends
+          if git fetch --depth=1 origin trends; then git show FETCH_HEAD:notes.json > trends/notes.json || rm -f trends/notes.json; fi
       - run: node scripts/build.js && mkdir -p site && cp dist/hardfiller-maker.html site/index.html
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

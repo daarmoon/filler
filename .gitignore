@@ -9,3 +9,5 @@ test/out.download
 !test/product.png
 *.log
 .DS_Store
+trends/notes.json
+trends-out/

@@ -1,8 +1,9 @@
 // ===== 윈도우 앱(Electron) 본체 (필러메이커스, 예전 이름 하드필러 메이커): dist/hardfiller-maker.html 을 창으로 열고, 파일 저장·MXF 변환을 맡음 =====
-const { app, BrowserWindow, ipcMain, dialog, shell, Menu } = require('electron');
-const path = require('path'); const fs = require('fs'); const os = require('os'); const { spawn } = require('child_process');
+const { app, BrowserWindow, ipcMain, dialog, shell, Menu, safeStorage } = require('electron');
+const path = require('path'); const fs = require('fs'); const os = require('os'); const crypto = require('crypto'); const { spawn } = require('child_process');
 
 const TEST_DIR = process.env.HFM_TEST_SAVE_DIR || ''; // 자동 테스트용: 저장 창 없이 이 폴더에 저장
+const TEST_SRC = process.env.HFM_TEST_SOURCE_DIR || ''; // 자동 테스트용: 상품 폴더 고르는 창 없이 이 폴더
 let win = null;
 // v9에서 앱 이름을 '필러메이커스'로 바꿨지만, 예전 설정·저장한 이미지가 그대로 남도록 예전 데이터 폴더를 계속 씀
 try { app.setPath('userData', path.join(app.getPath('appData'), '하드필러 메이커')); } catch (_) { }
@@ -84,6 +85,86 @@ ipcMain.handle('hfm:toMxf', (e, { input, fps, hasAudio, total }) => new Promise(
   p.on('error', reject);
   p.on('close', code => code === 0 ? resolve(out) : reject(new Error('MXF 변환 실패 (ffmpeg ' + code + ')\n' + log.split('\n').slice(-6).join('\n'))));
 }));
+
+// ---------- v10 상품 폴더: 사용자가 고른 폴더 안의 사진·영상만 읽음 ----------
+const MEDIA_IMG = /\.(png|jpe?g|webp|gif|bmp)$/i, MEDIA_VID = /\.(mp4|mov|m4v|webm|mkv|avi|wmv|mts|m2ts|mxf)$/i;
+const sourceRoots = () => (loadSettings().sourceDirs || []).filter(d => typeof d === 'string');
+function inSourceRoot(p) {
+  if (typeof p !== 'string' || !p) return false; const abs = path.resolve(p);
+  return sourceRoots().some(r => { const rel = path.relative(path.resolve(r), abs); return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel)); });
+}
+ipcMain.handle('hfm:pickSourceFolder', async () => {
+  let dir = TEST_SRC;
+  if (!dir) {
+    const r = await dialog.showOpenDialog(win, { title: '상품 폴더 고르기 (사진·영상이 든 폴더)', defaultPath: (sourceRoots()[0] && path.dirname(sourceRoots()[0])) || app.getPath('pictures'), properties: ['openDirectory'] });
+    if (r.canceled || !r.filePaths[0]) return null; dir = r.filePaths[0];
+  }
+  const s = loadSettings(); s.sourceDirs = [dir, ...(s.sourceDirs || []).filter(d => d !== dir)].slice(0, 10); saveSettings(s);
+  return dir;
+});
+ipcMain.handle('hfm:listFolder', (_e, dir) => {
+  if (!inSourceRoot(dir) || !fs.existsSync(dir)) return null;
+  const out = [];
+  const walk = (d, rel, depth) => {
+    let ents = []; try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of ents) {
+      if (e.name.startsWith('.')) continue;
+      const p = path.join(d, e.name);
+      if (e.isFile() && (MEDIA_IMG.test(e.name) || MEDIA_VID.test(e.name))) out.push({ name: e.name, rel: rel + e.name, path: p, video: MEDIA_VID.test(e.name) });
+      else if (e.isDirectory() && depth < 1) walk(p, rel + e.name + '/', depth + 1);
+    }
+  };
+  walk(dir, '', 0);
+  return out.sort((a, b) => a.rel.localeCompare(b.rel, 'ko'));
+});
+ipcMain.handle('hfm:readFile', (_e, p) => { if (!inSourceRoot(p)) throw new Error('상품 폴더 밖의 파일은 읽지 않아요'); return fs.readFileSync(p); });
+// 영상은 어떤 코덱이든 화면에서 재생되도록 가벼운 미리보기용 MP4(720p, 소리 없음, 앞 3분)로 바꿔 캐시. ffmpeg가 없거나 실패하면 원본 그대로
+const proxyJobs = new Map();
+function makeProxy(p) {
+  const ff = ffmpegPath(), st = fs.statSync(p);
+  const key = crypto.createHash('sha1').update(p + '|' + st.size + '|' + st.mtimeMs).digest('hex').slice(0, 20);
+  const dir = path.join(app.getPath('userData'), 'proxies'), out = path.join(dir, key + '.mp4');
+  if (fs.existsSync(out) && fs.statSync(out).size > 0) return Promise.resolve(out);
+  if (!ff) return Promise.resolve(p);
+  if (proxyJobs.has(out)) return proxyJobs.get(out);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmp = out + '.part.mp4';
+  const job = new Promise(res => {
+    const args = ['-hide_banner', '-y', '-i', p, '-t', '180', '-an', '-vf', "scale=-2:'min(720,ih)':flags=bicubic,format=yuv420p", '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26', '-movflags', '+faststart', tmp];
+    const c = spawn(ff, args, { windowsHide: true });
+    c.on('error', () => res(p));
+    c.on('close', code => { try { if (code === 0) { fs.renameSync(tmp, out); return res(out); } fs.rmSync(tmp, { force: true }); } catch (_) { } res(p); });
+  }).finally(() => proxyJobs.delete(out));
+  proxyJobs.set(out, job); return job;
+}
+ipcMain.handle('hfm:videoProxy', async (_e, p) => { if (!inSourceRoot(p)) throw new Error('상품 폴더 밖의 파일은 읽지 않아요'); return fs.readFileSync(await makeProxy(p)); });
+// 폴더에 파일이 생기거나 바뀌면 화면에 알려 줌 (다시 읽기)
+const watchers = new Map();
+ipcMain.handle('hfm:watchFolder', (e, dir) => {
+  if (!inSourceRoot(dir) || watchers.has(dir)) return !!watchers.get(dir);
+  try {
+    const w = fs.watch(dir, { recursive: process.platform !== 'linux' }, (_ev, f) => { if (f && (MEDIA_IMG.test(f) || MEDIA_VID.test(f)) && !e.sender.isDestroyed()) e.sender.send('hfm:folderChanged', dir); });
+    w.on('error', () => { try { w.close(); } catch (_) { } watchers.delete(dir); });
+    watchers.set(dir, w); return true;
+  } catch (_) { return false; }
+});
+ipcMain.handle('hfm:unwatchFolder', (_e, dir) => { const w = watchers.get(dir); if (w) { try { w.close(); } catch (_) { } watchers.delete(dir); } });
+
+// ---------- v10 Claude API 키: Windows 암호화 저장소(DPAPI)로 잠가서 이 PC의 이 계정에서만 풀림 ----------
+const secretFile = () => path.join(app.getPath('userData'), 'secret.bin');
+ipcMain.handle('hfm:secretGet', () => {
+  try {
+    const b = fs.readFileSync(secretFile());
+    if (b.slice(0, 6).toString() === 'plain:') return b.slice(6).toString('utf8');
+    return safeStorage.decryptString(b);
+  } catch (_) { return ''; }
+});
+ipcMain.handle('hfm:secretSet', (_e, v) => {
+  v = String(v || '').trim(); const f = secretFile();
+  if (!v) { try { fs.rmSync(f, { force: true }); } catch (_) { } return true; }
+  const data = safeStorage.isEncryptionAvailable() ? safeStorage.encryptString(v) : Buffer.concat([Buffer.from('plain:'), Buffer.from(v, 'utf8')]);
+  fs.writeFileSync(f, data); return true;
+});
 
 app.whenReady().then(() => { Menu.setApplicationMenu(menu); createWindow(); });
 app.on('window-all-closed', () => app.quit());

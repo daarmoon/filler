@@ -1,0 +1,46 @@
+# 트렌드 노트: 3시간마다 광고·그래픽 사이트를 읽어(robots.txt를 지키고, 글자만) trends 브랜치의 notes.json을 갱신해요.
+# 앱은 열 때 이 notes.json을 받아 AI 연출에 참고해요. 사이트 목록은 trends/sources.json.
+# AI 요약을 쓰려면 저장소 Settings > Secrets and variables > Actions 에 ANTHROPIC_API_KEY 를 넣어 주세요. 없으면 원문만 모아요.
+name: 트렌드 노트
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: trends
+  cancel-in-progress: false
+jobs:
+  trends:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: trends 브랜치 준비
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git fetch --depth=1 origin trends; then
+            git worktree add -B trends out FETCH_HEAD
+          else
+            git worktree add --detach out
+            cd out && git checkout --orphan trends && git rm -rf -q . && git clean -fdq
+          fi
+      - name: Claude SDK 설치 (앱 의존성과 따로)
+        run: npm install --prefix /tmp/trdeps @anthropic-ai/sdk --no-audit --no-fund
+      - name: 사이트 읽기 · 요약
+        run: node scripts/trends.js
+        env:
+          TRENDS_DIR: out
+          NODE_PATH: /tmp/trdeps/node_modules
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: trends 브랜치에 올리기
+        run: |
+          cd out
+          git add -A
+          git commit -q -m "트렌드 노트 $(date -u +%Y-%m-%dT%H:%MZ)" || { echo "바뀐 것 없음"; exit 0; }
+          git push origin trends

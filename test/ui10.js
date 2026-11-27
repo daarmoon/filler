@@ -6,6 +6,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const out = process.argv[2] || 'test/v9'; fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch(); const dpr = +(process.env.DPR || 1);
   const page = await b.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: dpr });
+  await page.route('https://raw.githubusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' })); // 트렌드 노트는 인터넷 대신 빈 목록
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   const sb = async n => (await page.inputValue('#sb')).split('\n')[n];
   const ok = (name, cond, extra) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + name + (extra !== undefined ? ' | ' + extra : '')); if (!cond) errs.push('FAIL ' + name); };
@@ -94,7 +95,7 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   // 3) 통강조 전용 화면
   await page.click('#fmtSeg button[data-v=통강조]'); await page.waitForTimeout(500);
   const tabs = await page.evaluate(() => [...document.querySelectorAll('#tabs button')].filter(b => b.offsetParent).map(b => b.dataset.p).join(','));
-  ok('통강조 탭', tabs === 'tong,board,src', tabs);
+  ok('통강조 탭', tabs === 'ai,tong,board,src', tabs);
   ok('통강조 화면 열림', await page.isVisible('#pane-tong'));
   const wrap = await page.locator('#canvasWrap').boundingBox(); ok('통강조 세로 비율', Math.abs(wrap.width / wrap.height - 376 / 790) < 0.03, (wrap.width / wrap.height).toFixed(3));
   await page.fill('#tqProduct', '쿨링 이불'); await page.fill('#tqPrice', '39900'); await page.fill('#tqList', '59000');

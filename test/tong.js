@@ -4,8 +4,10 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   const out = process.argv[2] || 'test/tong'; fs.mkdirSync(out, { recursive: true });
   const browser = await chromium.launch({ args: ['--ignore-certificate-errors'] });
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+  await page.route('https://raw.githubusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' })); // 트렌드 노트는 인터넷 대신 빈 목록
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(1500);
+  await page.evaluate(() => showPane('build')); // v10부터 첫 화면은 AI 스토리보드 탭
   await page.setInputFiles('#imgFile', 'test/product.png'); await page.waitForTimeout(500);
   const ids = await page.evaluate(() => TEMPLATES.filter(t => t.fmt === '통강조').map(t => t.id));
   for (const id of ids) {

@@ -63,10 +63,11 @@ async function exportVideo(proj, opt, onProgress) {
   const out = scaled ? document.createElement('canvas') : cv; if (scaled) { out.width = OW; out.height = OH; }
   const octx = scaled ? out.getContext('2d') : null; if (octx) octx.imageSmoothingQuality = 'high';
   const view = { showLbar: !!opt.withLbar && STAGE === 'wide', showSafe: false, warn: false, hints: false };
-  const usPerFrame = 1e6 / fps;
+  const usPerFrame = 1e6 / fps, hasVid = projHasVideo(proj);
   for (let f = 0; f < nFrames; f++) {
     if (encErr) throw encErr;
     if (opt.cancel && opt.cancel()) { ve.close(); throw new Error('취소했어요.'); }
+    if (hasVid) await syncVideosExact(proj, f / fps);
     renderFrame(ctx, proj, f / fps, view);
     if (octx) { octx.clearRect(0, 0, OW, OH); octx.drawImage(cv, 0, 0, OW, OH); }
     const frame = new VideoFrame(out, { timestamp: Math.round(f * usPerFrame), duration: Math.round(usPerFrame) });

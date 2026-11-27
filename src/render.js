@@ -104,6 +104,47 @@ function runFx(ctx, list, layerName, t, e) {
     } catch (err) { console.warn(n, err); }
   }
 }
+// ---------- v10 영상 소스 ----------
+// 장면 옵션 '영상: 이름'은 배경을 꽉 채우고(글자가 보이게 어둡게), '이미지: 영상이름'·@영상이름은 상품 컷 자리에서 재생
+function drawVideoCover(ctx, img) {
+  const s = Math.max(W / img.width, H / img.height), w = img.width * s, h = img.height * s;
+  ctx.save(); ctx.drawImage(img, (W - w) / 2, (H - h) / 2, w, h); ctx.fillStyle = 'rgba(0,0,0,.38)'; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+function sceneVideoNames(sc) { const n = [sc.opts.영상, sc.opts.이미지, ...((sc.lines || []).join(' ').match(/@([^\s,+/]+)/g) || []).map(x => x.slice(1))]; return [...new Set(n.filter(Boolean))]; }
+function videoUses(proj, t) {
+  const uses = new Map();
+  (proj.scenes || []).forEach(sc => {
+    const cur = t >= sc.start && t < sc.start + sc.dur; if (!cur && (t < sc.start - .8 || t > sc.start + sc.dur + .8)) return;
+    sceneVideoNames(sc).forEach(n => {
+      const a = proj.assets && proj.assets[n]; if (!a || !a.video || (uses.has(a) && !cur)) return;
+      const d = a.dur || a.video.duration || 1; let tt = Math.max(0, t - sc.start) + (parseFloat(sc.opts.시작) || 0); tt = d > .2 ? tt % d : 0; uses.set(a, tt);
+    });
+  });
+  return uses;
+}
+function paintVideo(a) { try { a.img.getContext('2d').drawImage(a.video, 0, 0, a.img.width, a.img.height); } catch (_) { } }
+function projHasVideo(proj) { return (proj.scenes || []).some(sc => sceneVideoNames(sc).some(n => proj.assets && proj.assets[n] && proj.assets[n].video)); }
+// 미리보기: 재생 중엔 영상도 같이 틀고(많이 어긋나면 맞춤), 멈추면 그 시점으로 찾아감
+function syncVideosPreview(proj, t, playing) {
+  const uses = videoUses(proj, t);
+  Object.values(proj.assets || {}).forEach(a => { if (a.video && !uses.has(a) && !a.video.paused) a.video.pause(); });
+  uses.forEach((tt, a) => {
+    const v = a.video; if (v.readyState < 2) return;
+    if (playing) { if (v.paused) v.play().catch(() => { }); if (Math.abs(v.currentTime - tt) > .3) v.currentTime = tt; }
+    else { if (!v.paused) v.pause(); if (Math.abs(v.currentTime - tt) > .03 && !v.seeking) v.currentTime = tt; }
+    paintVideo(a);
+  });
+}
+// 내보내기: 프레임마다 정확한 시점으로 찾아간 뒤 그림
+const waitEv = (el, ev, ms) => new Promise(res => { const done = () => { el.removeEventListener(ev, done); clearTimeout(to); res(); }; const to = setTimeout(done, ms); el.addEventListener(ev, done); });
+async function syncVideosExact(proj, t) {
+  for (const [a, tt] of videoUses(proj, t)) {
+    const v = a.video; if (!v.paused) v.pause();
+    if (v.readyState < 2) await waitEv(v, 'loadeddata', 3000);
+    if (Math.abs(v.currentTime - tt) > .001) { const p = waitEv(v, 'seeked', 3000); v.currentTime = tt; await p; }
+    paintVideo(a);
+  }
+}
 function renderScene(ctx, proj, i, t) {
   FX_OPT = proj.fxOpt || {}; FX_TOTAL = proj.total || 20;
   const e = sceneEnv(proj, i, t);
@@ -114,6 +155,8 @@ function renderScene(ctx, proj, i, t) {
   if (cam && cam.bg) { ctx.translate(W / 2 + cam.dx * .6, H / 2 + cam.dy * .6); ctx.scale(cam.s + .02, cam.s + .02); ctx.translate(-W / 2, -H / 2); }
   if (FEEL.drift) { const s = 1 + FEEL.drift * 1.6 * u; ctx.translate(W / 2, H / 2); ctx.scale(s, s); ctx.translate(-W / 2, -H / 2); }
   e.th.bg(ctx, t, e.v);
+  const bgv = e.opts.영상 && proj.assets && proj.assets[e.opts.영상];
+  if (bgv && bgv.img) drawVideoCover(ctx, bgv.img);
   ctx.restore();
   const fxList = sceneFx(proj, e.sc);
   if (e.th.panel) { ctx.save(); e.th.panel(ctx, t, e.v, e.A); ctx.restore(); }

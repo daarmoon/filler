@@ -35,12 +35,12 @@ function init() {
   $('sb').value = S.texts[fmt0] || (saved && !isTpl(saved.text) && fmtOfText(saved.text) === fmt0 ? saved.text : blankText(fmt0));
   const oldDemo = f => f && f.product === '마데카 크림' && f.price === '76090' && (f.comps || [])[0] && f.comps[0].name === '크림 50ml';
   loadForm(saved && saved.form && !oldDemo(saved.form) ? saved.form : {});
-  try { $('aiKey').value = localStorage.getItem('hfm.key') || ''; } catch (_) { }
-  bindSplitters(); bindUI(); bindQuick(); bindTong(); bindKey(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('build');
+  bindSplitters(); bindUI(); bindQuick(); bindTong(); bindKey(); bindAiPane(); buildDesignDDs(); buildFxChips(); parseNow(); showPane('ai');
+  loadApiKey(); loadTrends();
   $('appVer').textContent = 'v' + APP_VERSION + (APP ? ' · 윈도우 앱' : '');
   if (APP) { document.body.classList.add('app'); APP.info().then(i => { APP_INFO = i; }).catch(() => { }); }
   loadFonts().then(() => { S.dirty = true; lastWarnKey = null; buildDesignDDs(); thumbsSoon(); });
-  restoreAssets();
+  restoreAssets().then(restoreFolder); // 상품 폴더는 지난번에 올린 이미지 다음에 (폴더 소스는 따로 보관하지 않고 폴더에서 다시 읽음)
   // 예상 못 한 오류는 조용히 넘어가지 않고 알려 줌
   window.addEventListener('error', e => { if (e.message && !/ResizeObserver/.test(e.message)) toast('문제가 생겼어요: ' + e.message); });
   window.addEventListener('unhandledrejection', e => { const m = e.reason && e.reason.message; if (m) toast('문제가 생겼어요: ' + m); });
@@ -304,8 +304,8 @@ function runDirector(newSeed) {
 }
 async function runAI() {
   const key = $('aiKey').value.trim();
-  if (!key) { $('aiKeyBox').open = true; $('aiKey').focus(); $('aiMsg').textContent = 'Anthropic API 키를 넣어 주세요. (console.anthropic.com 에서 발급)'; return; }
-  try { localStorage.setItem('hfm.key', key); } catch (_) { }
+  if (!key) { $('aiMsg').textContent = 'Anthropic API 키를 넣어 주세요. (✦ AI 스토리보드 탭 아래 API 키 설정)'; showPane('ai'); $('aiKeyBox').open = true; $('aiKey').focus(); return; }
+  saveApiKey(key);
   const btn = $('aiBtn'); btn.disabled = true; const t0 = Date.now();
   const tick = setInterval(() => { $('aiMsg').textContent = `AI가 연출을 고민하고 있어요… ${Math.round((Date.now() - t0) / 1000)}초`; }, 500);
   try {
@@ -399,7 +399,7 @@ function bindQuick() {
   $('shuffleBtn').onclick = () => runDirector(true);
   $('aiBtn').onclick = runAI;
   $('multiBtn').onclick = makeVariants;
-  $('aiKey').onchange = () => { try { localStorage.setItem('hfm.key', $('aiKey').value.trim()); } catch (_) { } };
+  $('aiKey').onchange = () => saveApiKey($('aiKey').value);
 }
 
 // ---------- 스토리보드 파싱 ----------
@@ -426,11 +426,13 @@ function parseNow() {
   if (tl.total > S.dur + .01) S.errors.push(`고정 길이 합(${tl.fixedSum.toFixed(1)}초)이 전체 길이보다 길어서 ${tl.total.toFixed(1)}초가 됐어요.`);
   // 없는 이미지 이름 알림
   const missing = new Set();
-  S.scenes.forEach(sc => { const names = [sc.opts.이미지, ...sc.lines.join(' ').match(/@([^\s,+/]+)/g) || []].filter(Boolean).map(n => n.replace(/^@/, '')); names.forEach(n => { if (!S.assets[n]) missing.add(n); }); });
+  S.scenes.forEach(sc => { const names = [sc.opts.이미지, sc.opts.영상, ...sc.lines.join(' ').match(/@([^\s,+/]+)/g) || []].filter(Boolean).map(n => n.replace(/^@/, '')); names.forEach(n => { if (!S.assets[n]) missing.add(n); }); });
   if (missing.size) S.errors.push(`아직 올리지 않은 이미지: ${[...missing].join(', ')} ('🖼 소스' 탭에서 올리고 이름을 맞춰 주세요. 없으면 자리 표시로 나와요.)`);
   $('errs').textContent = S.errors.join('\n');
   $('sceneCount').textContent = `${S.scenes.length}장면 · ${S.total.toFixed(1)}초`;
   syncControls(); buildTimeline(); if (S.sel >= S.scenes.length) S.sel = -1; buildInspector(); buildStack(); buildTongPane(); thumbsSoon(); fontsSoon();
+  if (BOARD.vers.length) renderBoardScenes();
+  S.hasVideo = projHasVideo(proj());
   S.t = Math.min(S.t, S.total); S.dirty = true; persist();
 }
 
@@ -467,7 +469,7 @@ function switchFormat(v) {
 }
 
 // 상단 설정을 스토리보드 첫 줄에 반영
-function writeSettings() {
+function settingsObj() {
   const s = { 형식: S.fmt, 테마: THEMES[S.theme].name, 길이: String(S.dur) };
   if (S.fmt === '통강조') { if (S.head) s.머리 = S.head; if (S.foot) s.꼬리 = S.foot; if (S.frame && S.frame !== '없음') s.틀 = S.frame; }
   else s.L바 = LBAR_LABEL[S.lbar];
@@ -481,6 +483,10 @@ function writeSettings() {
   if (S.font) s.폰트 = FONTS[S.font].name.split(' ')[0];
   const motionName = Object.keys(MOTIONS).find(k => MOTIONS[k] === S.motion); if (S.motion !== 'pop') s.모션 = motionName;
   if (S.feel !== '보통') s.느낌 = S.feel;
+  return s;
+}
+function writeSettings() {
+  const s = settingsObj();
   const now = Date.now(); if (now - (S.lastSetPush || 0) > 1200) { S.hist.push($('sb').value); if (S.hist.length > 40) S.hist.shift(); $('undoBtn').disabled = false; } S.lastSetPush = now;
   const lines = $('sb').value.split('\n');
   const idx = lines.findIndex(l => l.trim() && !l.trim().startsWith('#'));
@@ -662,7 +668,7 @@ const PALETTE = {
   tong: [['typo', '타이포', '큰 글자'], ['hook', '훅 카피', '작은+큰 문구'], ['impact', '강조', '분리·반복'], ['product', '상품', '사진 + 문구'], ['badge', '배지', '스탬프'],
     ['points', '포인트', '체크 목록'], ['price', '가격', '숫자 굴리기'], ['price', '할인가', '정가→내려가기', DOWN], ['composition', '구성표', '구성·수량'], ['info', '정보', '항목 표'], ['urgent', '한정', '마감 임박'], ['cta', '마무리', '주문 한마디']],
 };
-let palFmt = null, PANE = 'build';
+let palFmt = null, PANE = 'ai';
 function buildPalette() {
   palFmt = S.fmt === '통강조' ? 'tong' : 'wide';
   $('palette').innerHTML = PALETTE[palFmt].map(([t, n, d], i) => `<button data-t="${t}" data-i="${i}" title="${BLOCKS[t].help.replace(/"/g, '&quot;')}"><b>${n}</b><small>${d}</small></button>`).join('');
@@ -952,18 +958,21 @@ function renderAssets() {
     const c = document.createElement('canvas'); const s = Math.min(128 / a.img.width, 128 / a.img.height); c.width = Math.max(1, a.img.width * s); c.height = Math.max(1, a.img.height * s);
     c.getContext('2d').drawImage(a.img, 0, 0, c.width, c.height);
     const r = document.createElement('div');
-    r.innerHTML = `<input type="text" value="${n}" style="width:100%"><div class="acts"><button class="small" data-a="rm">배경 제거</button><label class="dim">허용치 <input type="range" min="5" max="120" value="${a.tol || 40}" style="width:70px;vertical-align:middle"></label><button class="small" data-a="orig">원본</button><button class="small" data-a="del">삭제</button></div>`;
+    r.innerHTML = `<input type="text" value="${escA(n)}" style="width:100%">` + (a.video ? `<div class="acts"><span class="dim">🎬 영상 ${(a.dur || 0).toFixed(1)}초${a.folder ? ' · 상품 폴더' : ''}</span><button class="small" data-a="del">빼기</button></div>`
+      : `<div class="acts">${a.folder ? '<span class="dim">📁</span>' : ''}<button class="small" data-a="rm">배경 제거</button><label class="dim">허용치 <input type="range" min="5" max="120" value="${a.tol || 40}" style="width:70px;vertical-align:middle"></label><button class="small" data-a="orig">원본</button><button class="small" data-a="del">삭제</button></div>`);
     d.append(c, r); box.appendChild(d);
     const [inp] = r.getElementsByTagName('input'); const tol = r.querySelector('input[type=range]');
     inp.onchange = () => { const nn = inp.value.replace(/[\s,+/@{}]/g, ''); if (!nn || S.assets[nn]) { inp.value = n; return; } S.assets[nn] = a; delete S.assets[n];
       $('sb').value = $('sb').value.split('@' + n).join('@' + nn).replace(new RegExp('(이미지:\\s*)' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?=[,}])', 'g'), '$1' + nn); renderAssets(); parseNow(); };
-    tol.oninput = () => a.tol = +tol.value;
-    r.querySelector('[data-a=rm]').onclick = () => { a.img = removeBackground(a.orig, a.tol || 40, 2); renderAssets(); S.dirty = true; };
-    r.querySelector('[data-a=orig]').onclick = () => { a.img = a.orig; renderAssets(); S.dirty = true; };
-    r.querySelector('[data-a=del]').onclick = () => { delete S.assets[n]; renderAssets(); parseNow(); };
+    if (tol) tol.oninput = () => a.tol = +tol.value;
+    if (!a.video) {
+      r.querySelector('[data-a=rm]').onclick = () => { a.img = removeBackground(a.orig, a.tol || 40, 2); renderAssets(); S.dirty = true; };
+      r.querySelector('[data-a=orig]').onclick = () => { a.img = a.orig; renderAssets(); S.dirty = true; };
+    }
+    r.querySelector('[data-a=del]').onclick = () => { if (a.video) { a.video.pause(); } delete S.assets[n]; renderAssets(); parseNow(); };
   }
   if (S.sel >= 0) buildInspector();
-  renderComps(); suggestKeys(); thumbsSoon(); saveAssetsSoon();
+  renderComps(); suggestKeys(); thumbsSoon(); saveAssetsSoon(); renderFolderCard();
 }
 async function fileToCanvas(f) {
   const url = URL.createObjectURL(f); try { const img = await loadImageFromURL(url); return trimMargins(imageToCanvas(img)); } finally { URL.revokeObjectURL(url); }
@@ -1007,6 +1016,7 @@ function loop(ts) {
     S.t += dt; if (S.t >= S.total) { if ($('loopChk').checked) { S.t = 0; restartAudio(); } else { S.t = S.total; setPlaying(false); } }
     S.dirty = true;
   }
+  if (S.hasVideo) { syncVideosPreview(proj(), S.t, S.playing); if (S.playing) S.dirty = true; }
   if (S.dirty) {
     S.dirty = false;
     const tong = S.fmt === '통강조', inset = tong && $('lbarChk').checked, cv = $('cv');
@@ -1062,7 +1072,7 @@ function saveAssetsSoon() {
   if (!assetsRestored) return; clearTimeout(assetSaveTimer);
   assetSaveTimer = setTimeout(async () => {
     try {
-      const out = {}; for (const [n, a] of Object.entries(S.assets)) out[n] = { img: await canvasBlob(a.img), orig: a.orig !== a.img ? await canvasBlob(a.orig) : null, tol: a.tol };
+      const out = {}; for (const [n, a] of Object.entries(S.assets)) if (!a.folder && !a.video) out[n] = { img: await canvasBlob(a.img), orig: a.orig !== a.img ? await canvasBlob(a.orig) : null, tol: a.tol };
       await IDB.set('assets', out);
       await IDB.set('bgm', S.bgm ? { name: S.bgm.name, raw: S.bgm.raw, volume: S.bgm.volume, fade: S.bgm.fade, offset: S.bgm.offset } : null);
     } catch (_) { }
@@ -1111,7 +1121,7 @@ function exportName(ext) {
   return `${S.fmt}_${first}_${S.total.toFixed(0)}초.${ext}`;
 }
 function openExport() {
-  if (!S.scenes.length) { toast('먼저 장면을 하나 이상 만들어 주세요'); showPane('build'); return; }
+  if (!S.scenes.length) { toast('먼저 장면을 하나 이상 만들어 주세요'); showPane('ai'); return; }
   const tong = S.fmt === '통강조';
   $('expInfo').textContent = `${S.fmt} · ${S.scenes.length}장면 · ${S.total.toFixed(2)}초 · ${tong ? '376×790 (L바 왼쪽 네모 크기)' : '1920×1080'}. 최신 Chrome/Edge에서 MP4(H.264)로 저장돼요. 렌더링에는 영상 길이의 1~3배 시간이 걸릴 수 있어요.`;
   $('expLbarRow').hidden = tong; $('ffBox').hidden = tong || !!APP; $('expMxfRow').hidden = tong || !APP || !APP_INFO.ffmpeg;
@@ -1127,10 +1137,10 @@ function openExport() {
   $('ffCopy').onclick = () => { $('ffCmd').select(); document.execCommand('copy'); $('ffCopy').textContent = '복사했어요'; setTimeout(() => $('ffCopy').textContent = '명령 복사', 1500); };
   const empties = S.scenes.map((sc, i) => sceneEmpty(sc) ? i + 1 : 0).filter(Boolean);
   if (empties.length) $('expInfo').textContent += ` ⚠ ${empties.join('·')}번 장면은 문구가 비어 있어서 배경만 나와요.`;
-  $('expProg').hidden = true; $('expMsg').textContent = ''; $('expDlg').showModal();
+  $('expProg').hidden = true; $('expMsg').textContent = ''; renderDeliveryChecks(); $('expDlg').showModal();
 }
 async function doExport() {
-  if (exporting) return; exporting = true; cancelFlag = false; setPlaying(false);
+  if (exporting) return; exporting = true; cancelFlag = false; setPlaying(false); recordEdits();
   $('expGo').disabled = true; $('expProg').hidden = false; $('expCancel').textContent = '취소';
   const t0 = performance.now();
   try {

@@ -5,10 +5,12 @@ const { chromium } = require('playwright'); const path = require('path'); const 
 (async () => {
   const out = process.argv[2] || 'test/v8'; fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch(); const page = await b.newPage({ viewport: { width: 1680, height: 1050 }, deviceScaleFactor: +(process.env.DPR || 1) });
+  await page.route('https://raw.githubusercontent.com/**', r => r.fulfill({ status: 200, contentType: 'application/json', body: '{"items":[]}' })); // 트렌드 노트는 인터넷 대신 빈 목록
   const errs = []; page.on('pageerror', e => errs.push(e.message)); page.on('console', m => { if (m.type() === 'error') errs.push(m.text()); });
   const sb = async n => (await page.inputValue('#sb')).split('\n')[n];
   const ok = (name, cond, extra) => { console.log((cond ? 'OK  ' : 'FAIL') + ' ' + name + (extra !== undefined ? ' | ' + extra : '')); if (!cond) errs.push('FAIL ' + name); };
   await page.goto('file://' + path.resolve('dist/hardfiller-maker.html')); await page.waitForTimeout(1500);
+  await page.evaluate(() => showPane('build')); // v10부터 첫 화면은 AI 스토리보드 탭
   ok('인서트 탭 없음', !(await page.$('#fmtSeg button[data-v=인서트]')));
 
   // 1) 직접 만들기: 타이포 + 줄 도구

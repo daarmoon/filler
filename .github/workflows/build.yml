@@ -17,6 +17,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: 트렌드 노트 받기 (있으면 빌드에 넣어 둠)
+        shell: bash
+        run: |
+          mkdir -p trends
+          if git fetch --depth=1 origin trends; then git show FETCH_HEAD:notes.json > trends/notes.json || rm -f trends/notes.json; fi
       - run: npm run dist:win
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
