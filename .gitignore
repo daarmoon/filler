@@ -1,0 +1,11 @@
+node_modules/
+release/
+vendor/ffmpeg/
+test/*/
+test/*.png
+test/*.jpg
+test/*.mp4
+test/out.download
+!test/product.png
+*.log
+.DS_Store

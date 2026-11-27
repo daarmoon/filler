@@ -1,0 +1,37 @@
+# 윈도우 설치 파일 자동 빌드: v로 시작하는 태그를 올리면(예: v6.0.0) 릴리스에 설치 파일이 붙어요.
+# Actions 탭에서 "Run workflow"로 직접 돌리면 결과 파일을 Artifacts로 받을 수 있어요.
+name: Windows 빌드
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run dist:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HardfillerMaker-windows
+          path: |
+            release/*.exe
+            release/*.zip
+          if-no-files-found: error
+      - name: 릴리스에 올리기 (태그일 때만)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/*.exe
+            release/*.zip

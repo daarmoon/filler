@@ -1,0 +1,28 @@
+# 브라우저용(설치 없이 쓰는) 버전을 GitHub Pages로 올려요. 저장소 Settings > Pages 에서 Source를 "GitHub Actions"로 바꿔 주세요.
+name: 웹 버전 배포
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/build.js && mkdir -p site && cp dist/hardfiller-maker.html site/index.html
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deploy
+        uses: actions/deploy-pages@v4
