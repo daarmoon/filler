@@ -1,0 +1,22 @@
+{
+ "updated": null,
+ "checked": "2026-11-27T07:22:36.953Z",
+ "items": [],
+ "sources": [
+  {
+   "name": "TVCF",
+   "url": "https://tvcf.co.kr/",
+   "ok": false,
+   "reason": "HTTP 403",
+   "texts": 0
+  },
+  {
+   "name": "Prompt Motion",
+   "url": "https://prompt-motion.com/?type=prompt&tag=charts",
+   "ok": false,
+   "reason": "HTTP 403",
+   "texts": 0
+  }
+ ],
+ "note": "저장소 Secrets에 ANTHROPIC_API_KEY를 넣으면 읽은 글자를 AI가 연출 패턴으로 정리해요. 지금은 원문만 모으는 중."
+}

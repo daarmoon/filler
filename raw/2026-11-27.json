@@ -1,0 +1,23 @@
+[
+ {
+  "at": "2026-11-27T07:22:36.953Z",
+  "sources": [
+   {
+    "name": "TVCF",
+    "url": "https://tvcf.co.kr/",
+    "ok": false,
+    "reason": "HTTP 403",
+    "at": "2026-11-27T07:22:36.395Z",
+    "texts": []
+   },
+   {
+    "name": "Prompt Motion",
+    "url": "https://prompt-motion.com/?type=prompt&tag=charts",
+    "ok": false,
+    "reason": "HTTP 403",
+    "at": "2026-11-27T07:22:36.791Z",
+    "texts": []
+   }
+  ]
+ }
+]
