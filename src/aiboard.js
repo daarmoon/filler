@@ -241,6 +241,18 @@ ${index + 1}번째 장면(${sceneLines[index] || ''})만 다른 연출로 다시
   });
   return { line: String(out.line || '').split('\n')[0].trim(), why: out.why || '' };
 }
+// 직접 넣은 광고 카피·캡처 → 연출 패턴 (트렌드 노트용, 가벼운 Haiku 5.5)
+async function aiTrendPatterns({ apiKey, text, images }) {
+  const content = (images || []).map(d => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } }));
+  content.push({ type: 'text', text: `${text ? `사용자가 본 광고 카피·그래픽 문구:\n${text}\n\n` : ''}${images && images.length ? '위 광고 캡처도 함께 보고, ' : ''}홈쇼핑 필러(L바 그래픽·통강조)에 옮겨 쓸 수 있는 연출·카피 패턴을 3~10개 뽑아 주세요.` });
+  const out = await claudeRequest(apiKey, {
+    model: 'claude-haiku-5-5', max_tokens: 4000,
+    output_config: { format: { type: 'json_schema', schema: { type: 'object', properties: { items: { type: 'array', items: { type: 'object', properties: { pattern: { type: 'string', description: '옮겨 쓸 연출·카피 패턴 한 줄 (예: 숫자 하나만 화면 가득, 쾅 하고 멈춤)' }, example: { type: 'string', description: '그 패턴이 보인 원문 (짧게)' }, tags: { type: 'array', items: { type: 'string' } } }, required: ['pattern', 'example', 'tags'], additionalProperties: false } } }, required: ['items'], additionalProperties: false } } },
+    system: '당신은 한국 홈쇼핑 그래픽 PD를 돕는 트렌드 리서처입니다. 사용자가 본 광고의 카피·캡처를 보고 카피 구조·강조 방식·모션·전환·색감 패턴으로 일반화합니다. 원문을 길게 베끼지 않습니다. tags는 가격·임팩트·감성·타이포·전환·색감 같은 말 2~4개.',
+    messages: [{ role: 'user', content }],
+  });
+  return out.items || [];
+}
 // 규칙판 '이 장면만 다시': 모션·전환을 바꿔 줌
 function redoSceneRule(storyboard, index, seed) {
   const lines = storyboard.split('\n'); let k = -1;

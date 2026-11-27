@@ -119,6 +119,15 @@ details.more2[open]>summary{margin-bottom:8px}
 .trend .tActs{display:flex;gap:4px;flex:none}
 .trend .tActs button{padding:2px 7px;font-size:11.5px}
 .trend .tActs button.on{background:var(--red-soft);border-color:var(--red-mid)}
+.trendAdd{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)}
+.trendAdd textarea{min-height:64px;font-size:12.5px}
+.trendAdd textarea.over{border-color:var(--red);background:var(--red-soft)}
+.trendImgs{display:flex;flex-wrap:wrap;gap:5px}
+.trendImgs:empty{display:none}
+.trendImgs span{position:relative}
+.trendImgs img{height:44px;border-radius:6px;border:1px solid var(--line);display:block}
+.trendImgs button{position:absolute;top:-6px;right:-6px;width:18px;height:18px;padding:0;border-radius:50%;font-size:11px;line-height:1}
+.trend .mine{color:var(--red);font-weight:700}
 .expCheck{display:flex;flex-direction:column;gap:3px;margin:8px 0;font-size:12.5px;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .expCheck .ok{color:#137333}.expCheck .warn{color:#a35c00}.expCheck .bad{color:var(--red)}
 .pane{display:none;flex-direction:column;gap:14px}.pane.on{display:flex}
@@ -415,7 +424,14 @@ body.tong .wideOnly{display:none!important}
         <div id="folderInfo"></div>
         <div class="ctaRow" style="margin-top:8px"><button class="small" id="folderPick">폴더 연결</button><button class="small" id="folderReload" disabled>다시 읽기</button></div>
       </div>
-      <details class="card more2" id="trendBox"><summary>📈 트렌드 노트 <span class="dim" id="trendWhen"></span></summary><div id="trendList" class="trendList"></div></details>
+      <details class="card more2" id="trendBox"><summary>📈 트렌드 노트 <span class="dim" id="trendWhen"></span></summary>
+        <div class="trendAdd">
+          <textarea id="trendPaste" rows="3" placeholder="본 광고 카피·그래픽 문구를 붙여 넣거나, 광고 캡처를 여기에 끌어다 놓거나 붙여 넣으세요"></textarea>
+          <div class="trendImgs" id="trendImgs"></div>
+          <div class="ctaRow"><button class="small" id="trendAddBtn">📥 노트에 넣기</button><button class="small soft" id="trendImgBtn">🖼 캡처 올리기</button><input type="file" id="trendImg" accept="image/*" multiple hidden></div>
+          <div class="dim" id="trendMsg"></div>
+        </div>
+        <div id="trendList" class="trendList"></div></details>
       <details class="card more2" id="prefBox"><summary>⭐ 내 스타일 노트 <span class="dim" id="prefCount"></span></summary><div id="prefList" class="trendList"></div></details>
     </div>
 

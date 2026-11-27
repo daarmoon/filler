@@ -25,8 +25,8 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.route('https://api.anthropic.com/**', async r => {
     if (r.request().method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors });
     const body = JSON.parse(r.request().postData()); reqs.push({ body, headers: r.request().headers() });
-    const redo = !!body.output_config.format.schema.properties.line;
-    const out = redo ? { line: '[강조] 냉감 원단 / *Q-max 0.4* {모션: 지진, 전환: 글리치, 효과: 집중선}', why: '앞뒤와 다르게 화면을 흔들어 수치를 강조' }
+    const redo = !!body.output_config.format.schema.properties.line, trend = body.model === 'claude-haiku-5-5';
+    const out = trend ? { items: [{ pattern: '가격 숫자를 화면 가득 크게, 짧게 멈춤', example: '오늘만 이 가격', tags: ['가격', '임팩트'] }] } : redo ? { line: '[강조] 냉감 원단 / *Q-max 0.4* {모션: 지진, 전환: 글리치, 효과: 집중선}', why: '앞뒤와 다르게 화면을 흔들어 수치를 강조' }
       : { versions: [
         { name: '얼음 임팩트', concept: '차가운 블루 톤에 숫자를 쾅 박는 안', storyboard: '형식: 하드필러 / 테마: 겨울 블루 / 길이: 20\n[타이포] 오늘 밤부터 / *시원하게* {모션: 쓸기, 전환: 밀기, 영상: 사용영상}\n[상품] *쿨링 이불* {이미지: 상품정면, 모션: 슬라이드}\n[강조] *Q-max 0.4* {모션: 쾅}\n[가격] 단, / 39,900원 {정가: 59,000원, 할인: 32%, 가격모션: 내려가기, 모션: 펀치}' },
         { name: '리듬 타이포', concept: '짧게 끊어 리듬감 있게', storyboard: '```\n형식: 하드필러 / 테마: NS 레드 / 길이: 20\n[타이포] 오늘 밤부터 / *시원하게* {스타일: 쌓기}\n[가격] 단, / 39,900원\n```' },
@@ -173,6 +173,19 @@ const { chromium } = require('playwright'); const path = require('path'); const 
   await page.click('#trendBox summary'); await page.waitForTimeout(200);
   ok('트렌드 노트 목록 · 출처 상태', (await page.$$('#trendList .trend')).length === 3 && (await page.textContent('#trendList')).includes('robots.txt가 막아 둠'));
   ok('끈 노트는 흐리게', await page.$eval('#trendList .trend:nth-child(2)', e => e.classList.contains('off')));
+  // 9-2) 직접 넣기: 키 없이 글자 → 줄마다 그대로, 키가 있으면 캡처+글자 → AI(Haiku)가 패턴으로
+  const key0 = await page.inputValue('#aiKey');
+  await page.evaluate(() => { $('aiKey').value = ''; });
+  await page.fill('#trendPaste', '단 하루, 반값의 기적\n여름엔 시원하게'); await page.click('#trendAddBtn'); await page.waitForTimeout(200);
+  ok('직접 넣기 (키 없이 글자 줄 그대로)', await page.evaluate(() => myTrends().length === 2 && myTrends()[0].pattern === '단 하루, 반값의 기적' && myTrends()[0].mine));
+  await page.evaluate(k => { $('aiKey').value = k; }, key0);
+  await page.setInputFiles('#trendImg', 'test/product.png'); await page.waitForTimeout(300);
+  ok('캡처 올리기 미리보기', (await page.$$('#trendImgs img')).length === 1);
+  await page.fill('#trendPaste', '오늘만 이 가격');
+  await page.click('#trendAddBtn'); await page.waitForFunction(() => !$('trendAddBtn').disabled && /넣었어요/.test($('trendMsg').textContent), null, { timeout: 10000 });
+  const tq = reqs[reqs.length - 1];
+  ok('캡처+글자 → AI 패턴 (Haiku 5.5)', tq.body.model === 'claude-haiku-5-5' && tq.body.messages[0].content.some(c => c.type === 'image') && await page.evaluate(() => myTrends().length === 3 && myTrends()[0].pattern.startsWith('가격 숫자')));
+  ok('직접 넣은 노트도 AI 연출에 참고 · 빼기 버튼', await page.evaluate(() => activeTrends().filter(t => t.mine).length === 3) && (await page.$$('#trendList .tActs button[title="노트에서 지우기"]')).length === 3);
   await page.click('#prefBox summary');
   await page.evaluate(() => $('trendBox').scrollIntoView()); await page.screenshot({ path: out + '/v10_trends.png' });
 

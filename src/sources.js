@@ -131,23 +131,71 @@ async function loadTrends() {
   } catch (_) { }
   renderTrends();
 }
+// 직접 넣은 노트 (사이트가 자동 접속을 막을 때도 본 광고를 학습): 이 브라우저·앱에만 보관
+const myTrends = () => lsGet('hfm.myTrends', []);
+const allTrendItems = () => [...myTrends(), ...(TRENDS.items || [])];
 function activeTrends() {
   const off = new Set(lsGet('hfm.trendOff', [])), pin = new Set(lsGet('hfm.trendPin', []));
-  const items = (TRENDS.items || []).filter(t => !off.has(t.id));
+  const items = allTrendItems().filter(t => !off.has(t.id));
   return [...items.filter(t => pin.has(t.id)), ...items.filter(t => !pin.has(t.id))];
 }
 function fmtWhen(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; }
 function renderTrends() {
   const box = $('trendList'); if (!box) return;
   const off = new Set(lsGet('hfm.trendOff', [])), pin = new Set(lsGet('hfm.trendPin', []));
-  const items = TRENDS.items || [];
-  $('trendWhen').textContent = TRENDS.updated ? `${fmtWhen(TRENDS.updated)} 업데이트 · ${items.length}개` : '아직 없음';
+  const items = allTrendItems(), mine = myTrends().length, auto = (TRENDS.items || []).length;
+  $('trendWhen').textContent = [TRENDS.updated ? `${fmtWhen(TRENDS.updated)} 업데이트 · ${auto}개` : '', mine ? `직접 ${mine}개` : ''].filter(Boolean).join(' · ') || '아직 없음';
   const srcs = (TRENDS.sources || []).map(s => `<span class="dim">${esc(s.name)} ${s.ok ? '✓' : '· ' + esc(s.reason || '못 읽음')}</span>`).join(' · ');
-  box.innerHTML = (items.length ? items.slice(0, 40).map(t => `<div class="trend${off.has(t.id) ? ' off' : ''}"><div><b>${esc(t.pattern)}</b>${t.example ? `<div class="dim">“${esc(String(t.example).slice(0, 90))}”</div>` : ''}<div class="dim">${(t.tags || []).map(esc).join(' · ')}${t.url ? ` · <a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.source || '출처')}</a>` : ''}</div></div>
-    <div class="tActs"><button class="small${pin.has(t.id) ? ' on' : ''}" data-pin="${esc(t.id)}" title="AI가 늘 참고">📌</button><button class="small" data-off="${esc(t.id)}" title="AI가 참고하지 않음">${off.has(t.id) ? '켜기' : '끄기'}</button></div></div>`).join('')
-    : `<div class="dim">GitHub에서 3시간마다 광고·그래픽 사이트를 읽어 여기에 쌓여요.${TRENDS.note ? ' ' + esc(TRENDS.note) : ''}</div>`) + (srcs ? `<div style="margin-top:6px">${srcs}</div>` : '');
+  box.innerHTML = (items.length ? items.slice(0, 60).map(t => `<div class="trend${off.has(t.id) ? ' off' : ''}"><div><b>${esc(t.pattern)}</b>${t.example ? `<div class="dim">“${esc(String(t.example).slice(0, 90))}”</div>` : ''}<div class="dim">${[t.mine ? '<span class="mine">직접</span>' : '', ...(t.tags || []).map(esc), t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">${esc(t.source || '출처')}</a>` : ''].filter(Boolean).join(' · ')}</div></div>
+    <div class="tActs"><button class="small${pin.has(t.id) ? ' on' : ''}" data-pin="${esc(t.id)}" title="AI가 늘 참고">📌</button>${t.mine ? `<button class="small" data-rm="${esc(t.id)}" title="노트에서 지우기">빼기</button>` : `<button class="small" data-off="${esc(t.id)}" title="AI가 참고하지 않음">${off.has(t.id) ? '켜기' : '끄기'}</button>`}</div></div>`).join('')
+    : `<div class="dim">GitHub에서 3시간마다 광고·그래픽 사이트를 읽어 여기에 쌓여요. 본 광고 카피나 캡처를 위 칸에 직접 넣어도 돼요.${TRENDS.note ? ' ' + esc(TRENDS.note) : ''}</div>`) + (srcs ? `<div style="margin-top:6px">${srcs}</div>` : '');
+  box.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { lsSet('hfm.myTrends', myTrends().filter(t => t.id !== b.dataset.rm)); renderTrends(); });
   box.querySelectorAll('[data-pin]').forEach(b => b.onclick = () => { const s = new Set(lsGet('hfm.trendPin', [])); s.has(b.dataset.pin) ? s.delete(b.dataset.pin) : s.add(b.dataset.pin); lsSet('hfm.trendPin', [...s]); renderTrends(); });
   box.querySelectorAll('[data-off]').forEach(b => b.onclick = () => { const s = new Set(lsGet('hfm.trendOff', [])); s.has(b.dataset.off) ? s.delete(b.dataset.off) : s.add(b.dataset.off); lsSet('hfm.trendOff', [...s]); renderTrends(); });
+}
+
+// 직접 넣기: 글자(한 줄에 하나) · 광고 캡처. API 키가 있으면 AI(Haiku 5.5)가 연출 패턴으로 정리, 없으면 글자 줄을 그대로 노트로
+const TREND_IMGS = [];
+async function addTrendImage(file) {
+  if (TREND_IMGS.length >= 6) { toast('캡처는 한 번에 6장까지 넣을 수 있어요'); return; }
+  const bmp = await createImageBitmap(file); const k = Math.min(1, 1280 / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(bmp, 0, 0, c.width, c.height); bmp.close && bmp.close();
+  TREND_IMGS.push(c.toDataURL('image/jpeg', .85)); renderTrendImgs();
+}
+function renderTrendImgs() {
+  const box = $('trendImgs'); if (!box) return;
+  box.innerHTML = TREND_IMGS.map((u, i) => `<span><img src="${u}" alt="캡처 ${i + 1}"><button class="small" data-x="${i}" title="빼기">×</button></span>`).join('');
+  box.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { TREND_IMGS.splice(+b.dataset.x, 1); renderTrendImgs(); });
+}
+async function addMyTrends() {
+  const ta = $('trendPaste'), text = ta.value.trim(), msg = $('trendMsg'), key = $('aiKey').value.trim();
+  if (!text && !TREND_IMGS.length) { msg.textContent = '광고 카피를 붙여 넣거나 캡처를 올려 주세요.'; ta.focus(); return; }
+  let items;
+  if (key) {
+    const btn = $('trendAddBtn'); btn.disabled = true; msg.textContent = 'AI가 연출 패턴으로 정리하고 있어요…';
+    try { items = await aiTrendPatterns({ apiKey: key, text, images: TREND_IMGS.map(u => u.split(',')[1]) }); }
+    catch (e) { msg.textContent = e.message; btn.disabled = false; return; }
+    btn.disabled = false;
+  } else {
+    if (!text) { msg.textContent = '캡처를 읽으려면 API 키가 필요해요. 글자는 키 없이도 넣을 수 있어요.'; return; }
+    items = text.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 20).map(s => ({ pattern: s.slice(0, 140), example: '', tags: [] }));
+  }
+  const now = Date.now(), at = new Date().toISOString();
+  const add = items.filter(it => it && it.pattern).map((it, i) => ({ id: `m${now}-${i}`, pattern: String(it.pattern).slice(0, 160), example: String(it.example || '').slice(0, 120), tags: (it.tags || []).slice(0, 4), source: '직접 넣음', mine: true, at }));
+  lsSet('hfm.myTrends', [...add, ...myTrends()].slice(0, 60));
+  ta.value = ''; TREND_IMGS.length = 0; renderTrendImgs(); renderTrends();
+  msg.textContent = `노트에 ${add.length}개를 넣었어요${key ? ' (AI가 패턴으로 정리)' : ''}. 다음 AI 연출부터 참고해요.`;
+}
+function bindTrendAdd() {
+  const ta = $('trendPaste'); if (!ta) return;
+  $('trendAddBtn').onclick = addMyTrends;
+  $('trendImgBtn').onclick = () => $('trendImg').click();
+  $('trendImg').onchange = async e => { for (const f of e.target.files) await addTrendImage(f).catch(() => toast('이미지를 열지 못했어요')); e.target.value = ''; };
+  ta.addEventListener('dragover', e => { e.preventDefault(); ta.classList.add('over'); });
+  ta.addEventListener('dragleave', () => ta.classList.remove('over'));
+  ta.addEventListener('drop', async e => { const fs = [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')); if (!fs.length) return; e.preventDefault(); ta.classList.remove('over'); for (const f of fs) await addTrendImage(f).catch(() => { }); });
+  ta.addEventListener('paste', async e => { const fs = [...(e.clipboardData || {}).files || []].filter(f => f.type.startsWith('image/')); if (!fs.length) return; e.preventDefault(); for (const f of fs) await addTrendImage(f).catch(() => { }); });
 }
 
 // ---------- 내 스타일 노트: 👍 누른 안 · 직접 고친 내용 → 다음 AI 연출에 반영 ----------

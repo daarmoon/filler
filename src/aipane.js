@@ -24,7 +24,7 @@ function bindAiPane() {
   $('boardAI').onclick = () => runBoard(true);
   $('boardRule').onclick = () => runBoard(false);
   $('folderPick').onclick = connectFolder; $('folderReload').onclick = reloadFolder;
-  renderFolderCard(); renderPrefs(); boardHint();
+  renderFolderCard(); renderPrefs(); boardHint(); bindTrendAdd();
 }
 function onoTitle(w) { const f = ONO[w]; return f ? Object.entries(f).map(([k, v]) => `${k} ${v}`).join(' · ') : ''; }
 // 글자 넣기: 의성어·@소스는 커서 자리에, ※·#은 새 줄로
