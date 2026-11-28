@@ -61,5 +61,26 @@
     "texts": []
    }
   ]
+ },
+ {
+  "at": "2026-11-28T10:06:46.287Z",
+  "sources": [
+   {
+    "name": "TVCF",
+    "url": "https://tvcf.co.kr/",
+    "ok": false,
+    "reason": "사이트가 자동 접속을 막음 (HTTP 403)",
+    "at": "2026-11-28T10:06:45.643Z",
+    "texts": []
+   },
+   {
+    "name": "Prompt Motion",
+    "url": "https://prompt-motion.com/?type=prompt&tag=charts",
+    "ok": false,
+    "reason": "사이트가 자동 접속을 막음 (HTTP 403)",
+    "at": "2026-11-28T10:06:46.119Z",
+    "texts": []
+   }
+  ]
  }
 ]
